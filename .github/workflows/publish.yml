@@ -1,0 +1,57 @@
+name: Build And Publish Episodes
+
+on:
+  schedule:
+    - cron: '06 06 * * *'   # تعديل التوقيت حسب رغبتك (UTC) -> أول نشر يومي
+    - cron: '18 18 * * *'   # ثاني نشر يومي
+  workflow_dispatch: {}
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install requests gTTS google-api-python-client google-auth google-auth-oauthlib pillow
+
+      - name: Make output dir
+        run: mkdir -p output
+
+      - name: Generate script (simple)
+        env:
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+        run: |
+          python3 scripts/generate_script.py
+          # for now we expect you to edit output/script_raw.txt into a short text file for scene1
+          head -n 20 output/script_raw.txt > output/scene1_text.txt || true
+
+      - name: Generate image (example)
+        env:
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+        run: |
+          python3 scripts/generate_image.py "cute cartoon scene with Hazem and Sheh Madwar, 2D children book style, bright colors" output/scene1.png
+
+      - name: Generate TTS
+        run: |
+          python3 scripts/tts_gtts.py output/scene1_text.txt output/scene1.mp3
+
+      - name: Make cartoon voice
+        run: |
+          ffmpeg -i output/scene1.mp3 -af "asetrate=44100*1.25,aresample=44100,atempo=0.9" output/scene1_cartoon.mp3
+
+      - name: Build video
+        run: |
+          bash scripts/make_video.sh
+
+      - name: Upload video
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          python3 scripts/upload_youtube.py output/final_episode.mp4 "Hazem & Sheh Madwar - Episode (Auto)" "Auto-generated episode. Subscribe!" "kids,story"
