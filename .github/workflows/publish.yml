@@ -2,7 +2,7 @@ name: Build And Publish Episodes
 
 on:
   schedule:
-    - cron: '06 06 * * *'   # تعديل التوقيت حسب رغبتك (UTC)
+    - cron: '06 06 * * *'   # GMT times, غيّر لو تحب
     - cron: '18 18 * * *'
   workflow_dispatch: {}
 
@@ -16,50 +16,43 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          python -m pip install --upgrade pip
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
       - name: Install python deps
         run: |
-          pip install requests gTTS google-api-python-client google-auth google-auth-oauthlib pillow
+          pip install --upgrade pip
+          pip install requests google-api-python-client google-auth google-auth-oauthlib pillow
 
       - name: Make output dir
         run: mkdir -p output
 
-      - name: Generate script (simple)
+      - name: Generate script
         env:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
           python3 scripts/generate_script.py
-          # create a short text file for scene1 from the generated script (fallback if necessary)
-          if [ -f output/script_raw.txt ]; then
-            # crude extraction: take first 20 lines or full file if shorter
-            head -n 20 output/script_raw.txt > output/scene1_text.txt || true
-          else
-            echo "Hello! I'm Hazem. Today Sheh Madwar and I go on a small adventure." > output/scene1_text.txt
-          fi
-          cat output/scene1_text.txt
+          echo "Script file:" && ls -la output || true
 
-      - name: Generate image for scene1
+      - name: Generate TTS per character (OpenAI)
         env:
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python3 scripts/generate_image.py "cute cartoon scene with Hazem and Sheh Madwar, 2D children book style, bright colors" output/scene1.png || true
+          python3 scripts/tts_openai.py
           ls -la output || true
 
-      - name: Generate TTS for scene1
-        run: |
-          python3 scripts/tts_gtts.py output/scene1_text.txt output/scene1.mp3
-          ls -la output || true
-
-      - name: Build video (make cartoon voices + compose)
+      - name: Build video
         run: |
           bash scripts/make_video.sh
           ls -la output || true
 
-      - name: Upload video to YouTube (unlisted for testing)
+      - name: Upload video to YouTube
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
-          python3 scripts/upload_youtube.py output/final_episode.mp4 "Hazem & Sheh Madwar - Auto Episode" "Auto-generated episode. Subscribe for more!" "kids,story"
+          python3 scripts/upload_youtube.py output/final_episode.mp4
