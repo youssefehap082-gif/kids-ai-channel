@@ -1,10 +1,10 @@
 name: Build And Publish Episodes
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: '06 06 * * *'   # GMT times, غيّر لو تحب
+    - cron: '06 06 * * *'
     - cron: '18 18 * * *'
-  workflow_dispatch: {}
 
 jobs:
   build-publish:
@@ -25,19 +25,18 @@ jobs:
       - name: Install python deps
         run: |
           pip install --upgrade pip
-          pip install requests google-api-python-client google-auth google-auth-oauthlib pillow
+          pip install requests google-api-python-client google-auth google-auth-oauthlib pillow gTTS
 
-      - name: Make output dir
+      - name: Prepare output folder
         run: mkdir -p output
 
-      - name: Generate script
-        env:
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+      - name: Generate script (local template)
         run: |
           python3 scripts/generate_script.py
-          echo "Script file:" && ls -la output || true
+          echo "script.json contents:"
+          sed -n '1,200p' output/script.json || true
 
-      - name: Generate TTS per character (OpenAI)
+      - name: Generate TTS per character (OpenAI with fallback)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -49,10 +48,11 @@ jobs:
           bash scripts/make_video.sh
           ls -la output || true
 
-      - name: Upload video to YouTube
+      - name: Upload to YouTube (public)
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         run: |
           python3 scripts/upload_youtube.py output/final_episode.mp4
