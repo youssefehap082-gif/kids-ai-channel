@@ -1,58 +1,41 @@
 # scripts/generate_script.py
-# produce a slightly different episode each run (randomized elements)
-import json, os, random, time
-OUT_DIR = "output"
-os.makedirs(OUT_DIR, exist_ok=True)
+import json, os, time, random
 
-characters = ("Max","Sam","Lily","Alex","Emma")
-locations = ("the village square","a small forest","a moonlit hill","the old bridge","a cozy garden")
-objects = ("a shiny pebble","a glowing leaf","a tiny map","a twinkling shell","a little compass")
-lessons = ("teamwork","kindness","bravery","sharing","honesty")
+OUT = "output"
+os.makedirs(OUT, exist_ok=True)
 
-ep_ts = int(time.time())
-seed = ep_ts % 100000
-random.seed(seed)
+characters = ["Max","Sam","Lily","Alex","Emma"]
+# We'll keep main pair Max & Sam always present
+ep_id = int(time.time()) % 100000
+title = f"Max & Sam | Episode {ep_id}: The Little Star Map"
 
-loc = random.choice(locations)
-obj = random.choice(objects)
-lesson = random.choice(lessons)
+# create 5-6 scenes with multiple short lines so audio length increases
+scenes = []
+locations = ["the village square","a small forest","the moonlit hill","the old bridge","a cozy garden"]
+objects = ["a shiny pebble","a tiny map","a glowing shell","a twinkling compass","a little star"]
 
-title = f"Max & Sam | Episode {ep_ts % 1000}: The Little {obj.split()[1].capitalize()} Map"
+for i in range(1,6):
+    loc = random.choice(locations)
+    obj = random.choice(objects)
+    prompt = f"cute cartoon background: {loc}, 2D children's book illustration, bright colors, wide scene, simple characters space for overlay"
+    # build dialogue: 3-5 lines
+    dialogue = []
+    # always start with Max & Sam
+    dialogue.append({"speaker":"Max","text":f"Look, Sam! I found {obj} near {loc}."})
+    dialogue.append({"speaker":"Sam","text":"Wow! Maybe it will lead us to something special."})
+    # add a supporting friend occasionally
+    if random.random() < 0.5:
+        friend = random.choice(["Lily","Alex","Emma"])
+        dialogue.append({"speaker":friend,"text":"Be careful, follow the glowing path together."})
+    dialogue.append({"speaker":"Max","text":"Let's work together and see where it goes."})
+    dialogue.append({"speaker":"Sam","text":"Yes — teamwork will help us!"})
+    if i == 5:
+        dialogue.append({"speaker":"Narrator","text":"Don't forget to subscribe, like and hit the bell for the next episode!"})
+    scenes.append({"time":f"0:0{i-1}","image_prompt":prompt,"dialogue":dialogue})
 
-script = {
-  "title": title,
-  "scenes": [
-    {
-      "time": "0:00",
-      "image_prompt": f"cute cartoon two friends (Max and Sam) in {loc}, 2D children's book style, bright colors, morning",
-      "dialogue": [
-        {"speaker":"Max","text":"Good morning! I'm Max. Today we will look for a little map."},
-        {"speaker":"Sam","text":f"Hello Max! I found {obj} — maybe it's a map to something special!"}
-      ]
-    },
-    {
-      "time": "1:00",
-      "image_prompt": f"cartoon path leading through {loc} with small glowing markers, child-friendly illustration",
-      "dialogue": [
-        {"speaker":"Max","text":"Follow the glowing markers, step by step."},
-        {"speaker":"Sam","text":"Remember, it's easier when we help each other."}
-      ]
-    },
-    {
-      "time": "2:00",
-      "image_prompt": "friendly cartoon owl pointing at a map under the stars, whimsical style",
-      "dialogue": [
-        {"speaker":"Owl","text":f"Hoo-hoo! This story teaches {lesson}. Use it wisely."},
-        {"speaker":"Max","text":"We found something important today."},
-        {"speaker":"Sam","text":"Thank you for joining our adventure!"},
-        {"speaker":"Narrator","text":"Subscribe, like and hit the bell for the next episode!"}
-      ]
-    }
-  ]
-}
-
-with open(os.path.join(OUT_DIR, "script.json"), "w", encoding="utf-8") as f:
+script = {"title": title, "scenes": scenes}
+with open(os.path.join(OUT, "script.json"), "w", encoding="utf-8") as f:
     json.dump(script, f, ensure_ascii=False, indent=2)
 
-print("Wrote", os.path.join(OUT_DIR, "script.json"))
-print("Episode title:", title)
+print("Wrote", os.path.join(OUT, "script.json"))
+print("Title:", title)
