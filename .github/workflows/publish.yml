@@ -42,8 +42,7 @@ jobs:
 
       - name: Make cartoon voice
         run: |
-          ffmpeg -i output/scene1.mp3 -af "asetrate=44100*1.25,aresample=44100,atempo=0.9" output/scene1_cartoon.mp3
-
+          ffmpeg -i input.mp3 -af "asetrate=44100*1.15,aresample=44100,atempo=0.8696,volume=1.05,loudnorm" output_cartoon.mp3
       - name: Build video
         run: |
           bash scripts/make_video.sh
