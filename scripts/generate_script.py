@@ -1,35 +1,51 @@
 # scripts/generate_script.py
-import json, os
+# produce a slightly different episode each run (randomized elements)
+import json, os, random, time
 OUT_DIR = "output"
 os.makedirs(OUT_DIR, exist_ok=True)
 
+characters = ("Max","Sam","Lily","Alex","Emma")
+locations = ("the village square","a small forest","a moonlit hill","the old bridge","a cozy garden")
+objects = ("a shiny pebble","a glowing leaf","a tiny map","a twinkling shell","a little compass")
+lessons = ("teamwork","kindness","bravery","sharing","honesty")
+
+ep_ts = int(time.time())
+seed = ep_ts % 100000
+random.seed(seed)
+
+loc = random.choice(locations)
+obj = random.choice(objects)
+lesson = random.choice(lessons)
+
+title = f"Max & Sam | Episode {ep_ts % 1000}: The Little {obj.split()[1].capitalize()} Map"
+
 script = {
-  "title": "Max & Sam | Episode 1: The Little Star Map",
+  "title": title,
   "scenes": [
     {
       "time": "0:00",
-      "image_prompt": "cute cartoon two friends (Max and Sam) in a peaceful village square, 2D children's book style, bright colors, morning, smiling",
+      "image_prompt": f"cute cartoon two friends (Max and Sam) in {loc}, 2D children's book style, bright colors, morning",
       "dialogue": [
-        {"speaker":"Max","text":"Good morning! I'm Max. Today we will look for a little star map."},
-        {"speaker":"Sam","text":"Hello Max! I found a shiny pebble — maybe it's a map to the stars!"}
+        {"speaker":"Max","text":"Good morning! I'm Max. Today we will look for a little map."},
+        {"speaker":"Sam","text":f"Hello Max! I found {obj} — maybe it's a map to something special!"}
       ]
     },
     {
       "time": "1:00",
-      "image_prompt": "cartoon small forest path with glowing pebbles leading the way, child-friendly illustration, soft lighting",
+      "image_prompt": f"cartoon path leading through {loc} with small glowing markers, child-friendly illustration",
       "dialogue": [
-        {"speaker":"Max","text":"Look! The pebble lights up when we step — follow me."},
-        {"speaker":"Sam","text":"We must be brave together."}
+        {"speaker":"Max","text":"Follow the glowing markers, step by step."},
+        {"speaker":"Sam","text":"Remember, it's easier when we help each other."}
       ]
     },
     {
       "time": "2:00",
-      "image_prompt": "friendly cartoon owl on a branch showing a map under the moonlight, whimsical style, colorful stars",
+      "image_prompt": "friendly cartoon owl pointing at a map under the stars, whimsical style",
       "dialogue": [
-        {"speaker":"Owl","text":"Hoo-hoo! The little map needs teamwork. Share and help each other."},
-        {"speaker":"Max","text":"We helped the lost star find its home."},
-        {"speaker":"Sam","text":"Thank you for joining us. See you next time!"},
-        {"speaker":"Narrator","text":"Don't forget to subscribe, like and enable the bell to never miss a new episode!"}
+        {"speaker":"Owl","text":f"Hoo-hoo! This story teaches {lesson}. Use it wisely."},
+        {"speaker":"Max","text":"We found something important today."},
+        {"speaker":"Sam","text":"Thank you for joining our adventure!"},
+        {"speaker":"Narrator","text":"Subscribe, like and hit the bell for the next episode!"}
       ]
     }
   ]
@@ -37,4 +53,6 @@ script = {
 
 with open(os.path.join(OUT_DIR, "script.json"), "w", encoding="utf-8") as f:
     json.dump(script, f, ensure_ascii=False, indent=2)
-print("Wrote output/script.json (Episode 1 template).")
+
+print("Wrote", os.path.join(OUT_DIR, "script.json"))
+print("Episode title:", title)
