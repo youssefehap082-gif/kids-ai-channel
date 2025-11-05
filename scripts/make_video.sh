@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
+# scripts/make_video.sh (fixed - no here-doc)
 OUTDIR="output"
 mkdir -p "$OUTDIR"
 
@@ -11,24 +12,21 @@ if [ ! -f "$MANIFEST" ]; then
 fi
 
 # cleanup previous outputs
-rm -f "$OUTDIR"/scene*.mp4 mylist.txt || true
+rm -f "$OUTDIR"/scene*.mp4 mylist.txt "$OUTDIR/_scene_list.txt" || true
 
-# Read manifest (simple jq-less parsing by Python)
-python3 - <<'PY'
-import json, sys
-m = json.load(open("output/scene_manifest.json",encoding="utf-8"))
-for s in m["scenes"]:
-    print(s["scene_index"], s["audio"], s["image_prompt"])
-PY > output/_scene_list.txt
+# Produce a simple scene list (tab-separated) using the helper python script
+python3 scripts/emit_scene_list.py > "$OUTDIR/_scene_list.txt"
 
 i=0
-while read -r idx audio prompt_line; do
+while IFS=$'\t' read -r idx audio prompt_line; do
   if [ -z "$idx" ]; then
     continue
   fi
+
   scene_idx="$idx"
   audio_file="$audio"
   img_file="$OUTDIR/scene${scene_idx}.png"
+  scene_mp4="$OUTDIR/scene${scene_idx}.mp4"
 
   # generate image for scene if not exists
   if [ ! -f "$img_file" ]; then
@@ -36,14 +34,19 @@ while read -r idx audio prompt_line; do
     python3 scripts/generate_image.py "$prompt_line" "$img_file" || true
   fi
 
-  # build video from image+audio
-  scene_mp4="$OUTDIR/scene${scene_idx}.mp4"
-  echo "Building scene video $scene_mp4"
+  # verify audio exists
+  if [ ! -f "$audio_file" ]; then
+    echo "Warning: audio file $audio_file for scene $scene_idx not found. Creating 1s silence fallback."
+    ffmpeg -y -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t 1 -q:a 9 -acodec libmp3lame "$OUTDIR/scene${scene_idx}_silent.mp3"
+    audio_file="$OUTDIR/scene${scene_idx}_silent.mp3"
+  fi
+
+  echo "Building video for scene $scene_idx -> $scene_mp4"
   ffmpeg -y -loop 1 -i "$img_file" -i "$audio_file" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "scale=1280:720" "$scene_mp4"
 
   printf "file '%s'\n" "$scene_mp4" >> mylist.txt
   i=$((i+1))
-done < output/_scene_list.txt
+done < "$OUTDIR/_scene_list.txt"
 
 if [ $i -eq 0 ]; then
   echo "No scenes created."
