@@ -2,8 +2,8 @@ name: Build And Publish Episodes
 
 on:
   schedule:
-    - cron: '06 06 * * *'   # تعديل التوقيت حسب رغبتك (UTC) -> أول نشر يومي
-    - cron: '18 18 * * *'   # ثاني نشر يومي
+    - cron: '06 06 * * *'   # تعديل التوقيت حسب رغبتك (UTC)
+    - cron: '18 18 * * *'
   workflow_dispatch: {}
 
 jobs:
@@ -12,11 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip
+
+      - name: Install python deps
+        run: |
           pip install requests gTTS google-api-python-client google-auth google-auth-oauthlib pillow
 
       - name: Make output dir
@@ -27,30 +30,36 @@ jobs:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
           python3 scripts/generate_script.py
-          # for now we expect you to edit output/script_raw.txt into a short text file for scene1
-          head -n 20 output/script_raw.txt > output/scene1_text.txt || true
+          # create a short text file for scene1 from the generated script (fallback if necessary)
+          if [ -f output/script_raw.txt ]; then
+            # crude extraction: take first 20 lines or full file if shorter
+            head -n 20 output/script_raw.txt > output/scene1_text.txt || true
+          else
+            echo "Hello! I'm Hazem. Today Sheh Madwar and I go on a small adventure." > output/scene1_text.txt
+          fi
+          cat output/scene1_text.txt
 
-      - name: Generate image (example)
+      - name: Generate image for scene1
         env:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
-          python3 scripts/generate_image.py "cute cartoon scene with Hazem and Sheh Madwar, 2D children book style, bright colors" output/scene1.png
+          python3 scripts/generate_image.py "cute cartoon scene with Hazem and Sheh Madwar, 2D children book style, bright colors" output/scene1.png || true
+          ls -la output || true
 
-      - name: Generate TTS
+      - name: Generate TTS for scene1
         run: |
           python3 scripts/tts_gtts.py output/scene1_text.txt output/scene1.mp3
+          ls -la output || true
 
-      - name: Make cartoon voice
-        run: |
-          ffmpeg -i input.mp3 -af "asetrate=44100*1.15,aresample=44100,atempo=0.8696,volume=1.05,loudnorm" output_cartoon.mp3
-      - name: Build video
+      - name: Build video (make cartoon voices + compose)
         run: |
           bash scripts/make_video.sh
+          ls -la output || true
 
-      - name: Upload video
+      - name: Upload video to YouTube (unlisted for testing)
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
-          python3 scripts/upload_youtube.py output/final_episode.mp4 "Hazem & Sheh Madwar - Episode (Auto)" "Auto-generated episode. Subscribe!" "kids,story"
+          python3 scripts/upload_youtube.py output/final_episode.mp4 "Hazem & Sheh Madwar - Auto Episode" "Auto-generated episode. Subscribe for more!" "kids,story"
