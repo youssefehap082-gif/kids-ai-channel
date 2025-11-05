@@ -15,7 +15,7 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg libsndfile1 imagemagick
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -25,33 +25,40 @@ jobs:
       - name: Install python deps
         run: |
           pip install --upgrade pip
-          pip install requests google-api-python-client google-auth google-auth-oauthlib pillow gTTS
+          pip install requests google-api-python-client google-auth google-auth-oauthlib pillow gTTS numpy scipy soundfile
 
       - name: Prepare output folder
-        run: mkdir -p output
+        run: mkdir -p output assets
 
-      - name: Ensure script (use provided JSON template)
+      - name: Generate script (episode)
         run: |
-          if [ ! -f output/script.json ]; then
-            python3 scripts/generate_script.py
-          else
-            echo "Using existing output/script.json"
-          fi
-          echo "Script preview:"
+          python3 scripts/generate_script.py
+          echo "Script:"
           sed -n '1,200p' output/script.json || true
 
-      - name: Generate TTS per character (OpenAI with fallback)
+      - name: Generate images (backgrounds + characters + mouths)
+        env:
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+        run: |
+          python3 scripts/generate_all_images.py
+          ls -la assets || true
+          ls -la output || true
+
+      - name: Generate TTS per character (OpenAI)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python3 scripts/tts_openai.py
-          echo "Scene manifest:"
-          cat output/scene_manifest.json || true
           ls -la output || true
 
-      - name: Build video
+      - name: Lip-sync & build per-scene video
         run: |
-          bash scripts/make_video.sh
+          python3 scripts/lipsync_and_build.py
+          ls -la output || true
+
+      - name: Build final episode (concat)
+        run: |
+          bash scripts/concat_scenes.sh
           ls -la output || true
 
       - name: Upload to YouTube
