@@ -30,10 +30,14 @@ jobs:
       - name: Prepare output folder
         run: mkdir -p output
 
-      - name: Generate script (local template)
+      - name: Ensure script (use provided JSON template)
         run: |
-          python3 scripts/generate_script.py
-          echo "script.json contents:"
+          if [ ! -f output/script.json ]; then
+            python3 scripts/generate_script.py
+          else
+            echo "Using existing output/script.json"
+          fi
+          echo "Script preview:"
           sed -n '1,200p' output/script.json || true
 
       - name: Generate TTS per character (OpenAI with fallback)
@@ -41,6 +45,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python3 scripts/tts_openai.py
+          echo "Scene manifest:"
+          cat output/scene_manifest.json || true
           ls -la output || true
 
       - name: Build video
@@ -48,7 +54,7 @@ jobs:
           bash scripts/make_video.sh
           ls -la output || true
 
-      - name: Upload to YouTube (public)
+      - name: Upload to YouTube
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
