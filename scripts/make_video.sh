@@ -1,67 +1,55 @@
 #!/bin/bash
 set -euo pipefail
 
-# scripts/make_video.sh
-# - يبحث عن ملفات mp3 في output/*.mp3 (مثال: output/scene1.mp3)
-# - يحوّل كل ملف لصوت "كرتوني" بنفس الطبقة لكن بدون تسريع
-# - يولّد فيديو لكل مشهد من صورة مقابلة (output/scene1.png)
-# - يدمج المشاهد في ملف واحد output/final_episode.mp4
-
 OUTDIR="output"
 mkdir -p "$OUTDIR"
 
-# إعدادات الصوت الكرتوني (تقدر تغيّر pitch_multiplier إذا حبيت)
-PITCH_MULTIPLIER=1.15
-# atempo must be ~ 1 / PITCH_MULTIPLIER
-ATEMPO=$(awk "BEGIN{printf \"%.4f\", 1/${PITCH_MULTIPLIER}}")
-
-echo "Using pitch multiplier=${PITCH_MULTIPLIER}, atempo=${ATEMPO}"
-
-# نظف أي ملفات قديمة
-rm -f "$OUTDIR"/*.mp4 "$OUTDIR"/*_cartoon.mp3 mylist.txt || true
-
-shopt -s nullglob
-MP3_FILES=("$OUTDIR"/*.mp3)
-
-if [ ${#MP3_FILES[@]} -eq 0 ]; then
-  echo "No mp3 files found in $OUTDIR. Expecting files like output/scene1.mp3"
+MANIFEST="$OUTDIR/scene_manifest.json"
+if [ ! -f "$MANIFEST" ]; then
+  echo "Error: $MANIFEST not found. Run tts_openai.py first."
   exit 1
 fi
+
+# cleanup previous outputs
+rm -f "$OUTDIR"/scene*.mp4 mylist.txt || true
+
+# Read manifest (simple jq-less parsing by Python)
+python3 - <<'PY'
+import json, sys
+m = json.load(open("output/scene_manifest.json",encoding="utf-8"))
+for s in m["scenes"]:
+    print(s["scene_index"], s["audio"], s["image_prompt"])
+PY > output/_scene_list.txt
 
 i=0
-for mp3 in "${MP3_FILES[@]}"; do
-  basename=$(basename "$mp3" .mp3)   # e.g., scene1
-  cartoon_mp3="$OUTDIR/${basename}_cartoon.mp3"
-  img="$OUTDIR/${basename}.png"
-  scene_mp4="$OUTDIR/${basename}.mp4"
+while read -r idx audio prompt_line; do
+  if [ -z "$idx" ]; then
+    continue
+  fi
+  scene_idx="$idx"
+  audio_file="$audio"
+  img_file="$OUTDIR/scene${scene_idx}.png"
 
-  echo "Processing $mp3 -> $cartoon_mp3"
-
-  # 1) make cartoon voice (pitch up but keep same duration)
-  ffmpeg -y -i "$mp3" -af "asetrate=44100*${PITCH_MULTIPLIER},aresample=44100,atempo=${ATEMPO},volume=1.05,loudnorm" "$cartoon_mp3"
-
-  # 2) ensure we have an image for this scene; if not, create a simple color placeholder
-  if [ ! -f "$img" ]; then
-    echo "Image $img not found — creating placeholder."
-    ffmpeg -y -f lavfi -i color=c=lightblue:s=1280x720 -frames:v 1 "$img"
+  # generate image for scene if not exists
+  if [ ! -f "$img_file" ]; then
+    echo "Generating image for scene $scene_idx"
+    python3 scripts/generate_image.py "$prompt_line" "$img_file" || true
   fi
 
-  # 3) build scene video (image + cartoon audio)
-  echo "Building video for $basename"
-  ffmpeg -y -loop 1 -i "$img" -i "$cartoon_mp3" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "scale=1280:720" "$scene_mp4"
+  # build video from image+audio
+  scene_mp4="$OUTDIR/scene${scene_idx}.mp4"
+  echo "Building scene video $scene_mp4"
+  ffmpeg -y -loop 1 -i "$img_file" -i "$audio_file" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "scale=1280:720" "$scene_mp4"
 
-  # add to concat list
   printf "file '%s'\n" "$scene_mp4" >> mylist.txt
   i=$((i+1))
-done
+done < output/_scene_list.txt
 
 if [ $i -eq 0 ]; then
-  echo "No scenes produced."
+  echo "No scenes created."
   exit 1
 fi
 
-# 4) concat into final file
 echo "Concatenating $i scenes..."
 ffmpeg -y -f concat -safe 0 -i mylist.txt -c copy "$OUTDIR/final_episode.mp4"
-
-echo "Final video: $OUTDIR/final_episode.mp4"
+echo "Final episode at $OUTDIR/final_episode.mp4"
