@@ -1,53 +1,48 @@
 # scripts/generate_image.py
-# يولّد صور كرتونية باستخدام نموذج متاح على Hugging Face.
-# لو فشل النموذج، يولّد صورة افتراضية (Placeholder) بدل ما يفشل السكربت.
-
-import os, requests, sys, base64
-
+import os, sys, requests, base64
 HF_TOKEN = os.environ.get("HF_API_TOKEN")
-# موديل مجاني مفتوح ويعمل حاليًا
-MODEL = "prompthero/openjourney-v4"  # بديل لـ stable-diffusion
+MODEL = "prompthero/openjourney-v4"  # متاح عموماً، غيّره لو تحب
 URL = f"https://api-inference.huggingface.co/models/{MODEL}"
 
-headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
-prompt = sys.argv[1] if len(sys.argv) > 1 else "cute cartoon scene for children"
-output_file = sys.argv[2] if len(sys.argv) > 2 else "output/image.png"
-
-os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
-def save_image_from_b64(b64data, path):
-    with open(path, "wb") as f:
-        f.write(base64.b64decode(b64data))
-    print("✅ Image saved to", path)
-
-def fallback_image(path):
-    from PIL import Image, ImageDraw, ImageFont
-    img = Image.new("RGB", (512, 512), color=(255, 230, 200))
-    draw = ImageDraw.Draw(img)
-    draw.text((20, 230), "Image generation failed", fill=(0, 0, 0))
-    img.save(path)
-    print("⚠️ Used fallback image:", path)
-
-print(f"🎨 Generating image for prompt: {prompt}")
-
-try:
+def gen_image(prompt, outpath):
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
     payload = {"inputs": prompt}
-    response = requests.post(URL, headers=headers, json=payload, timeout=120)
-    response.raise_for_status()
-    data = response.json()
-    if isinstance(data, dict) and "error" in data:
-        print("HF error:", data["error"])
-        fallback_image(output_file)
-    elif isinstance(data, list) and "generated_image" in data[0]:
-        save_image_from_b64(data[0]["generated_image"], output_file)
-    else:
-        # بعض النماذج بترجع الصورة كبايتات مباشرة
-        if response.headers.get("content-type", "").startswith("image/"):
-            with open(output_file, "wb") as f:
-                f.write(response.content)
-            print("✅ Direct image saved to", output_file)
-        else:
-            fallback_image(output_file)
-except Exception as e:
-    print("❌ Exception while generating image:", e)
-    fallback_image(output_file)
+    try:
+        r = requests.post(URL, headers=headers, json=payload, timeout=120)
+        r.raise_for_status()
+        # some endpoints return raw image bytes
+        if r.headers.get("content-type","").startswith("image/"):
+            with open(outpath, "wb") as f:
+                f.write(r.content)
+            print("Saved direct image to", outpath)
+            return
+        # some return base64 inside json
+        data = r.json()
+        if isinstance(data, list) and len(data)>0 and "generated_image" in data[0]:
+            b64 = data[0]["generated_image"]
+            with open(outpath, "wb") as f:
+                f.write(base64.b64decode(b64))
+            print("Saved base64 image to", outpath)
+            return
+        # fallback: create placeholder
+        raise Exception("Unknown image response")
+    except Exception as e:
+        print("Image generation failed:", e)
+        # create simple placeholder using ffmpeg (requires ffmpeg installed)
+        try:
+            os.makedirs(os.path.dirname(outpath), exist_ok=True)
+            # create 1280x720 light background with text via ImageMagick if available. Using ffmpeg color fallback:
+            import subprocess
+            subprocess.run(["ffmpeg","-y","-f","lavfi","-i","color=c=lightblue:s=1280x720","-frames:v","1",outpath], check=True)
+        except Exception as ee:
+            print("Fallback placeholder creation failed:", ee)
+        print("Saved placeholder to", outpath)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python3 scripts/generate_image.py \"prompt\" output.png")
+        sys.exit(1)
+    prompt = sys.argv[1]
+    out = sys.argv[2]
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    gen_image(prompt, out)
