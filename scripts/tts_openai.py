@@ -1,24 +1,33 @@
-# scripts/tts_openai.py
-import os, sys, json, requests, subprocess, tempfile
+# scripts/tts_openai.py  (UPDATED - robust retries + fallback)
+import os
+import sys
+import json
+import time
+import math
+import random
+import subprocess
+import requests
+from pathlib import Path
 
 API_KEY = os.environ.get("OPENAI_API_KEY")
 if not API_KEY:
     raise SystemExit("ERROR: OPENAI_API_KEY not set as environment variable.")
 
-SCRIPT_PATH = "output/script.json"
-OUT_DIR = "output"
-os.makedirs(OUT_DIR, exist_ok=True)
+OUT_DIR = Path("output")
+SCRIPT_PATH = OUT_DIR / "script.json"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Set the voice mapping for characters (edit to your liking)
+# mapping speakers -> OpenAI voice names (edit to taste)
 SPEAKER_VOICE_MAP = {
-    "Hazem": "alloy",        # male
-    "Sheh Madwar": "ash",    # male 2
-    "Hind": "fable",         # female
-    "Alaa": "ballad",        # male 3
-    "Eman": "coral"          # female 2
+    "Hazem": "alloy",
+    "Sheh Madwar": "ash",
+    "Hind": "fable",
+    "Alaa": "ballad",
+    "Eman": "coral",
+    "Narrator": "alloy"
 }
 
-# Optional: panning per speaker (left/right balance -1.0..1.0)
+# panning per speaker (-1.0 left ... 1.0 right)
 SPEAKER_PAN = {
     "Hazem": -0.3,
     "Sheh Madwar": 0.3,
@@ -27,133 +36,241 @@ SPEAKER_PAN = {
     "Eman": 0.0
 }
 
-def tts_request(text, voice, outpath):
-    url = "https://api.openai.com/v1/audio/speech"
+# OpenAI TTS endpoint & model
+OPENAI_TTS_URL = "https://api.openai.com/v1/audio/speech"
+OPENAI_MODEL = "gpt-4o-mini-tts"
+
+# Retry settings for OpenAI requests
+MAX_RETRIES = 5
+BASE_SLEEP = 1.5  # base seconds for exponential backoff
+TIMEOUT = 120
+
+def log(*a, **k):
+    print(*a, **k)
+    sys.stdout.flush()
+
+def write_streamed_response(resp, outpath):
+    with open(outpath, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=32768):
+            if chunk:
+                f.write(chunk)
+
+def generate_tts_openai(text, voice, outpath):
+    """
+    Generate mp3 via OpenAI TTS with retries and exponential backoff.
+    Returns True on success, False on failure.
+    """
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
         "Accept": "audio/mpeg"
     }
-    payload = {
-        "model": "gpt-4o-mini-tts",
-        "voice": voice,
-        "input": text
-    }
-    print(f"Request TTS voice={voice} len={len(text)} -> {outpath}")
-    r = requests.post(url, headers=headers, json=payload, stream=True, timeout=120)
-    r.raise_for_status()
-    with open(outpath, "wb") as f:
-        for chunk in r.iter_content(chunk_size=32768):
-            if chunk:
-                f.write(chunk)
-    return outpath
+    payload = {"model": OPENAI_MODEL, "voice": voice, "input": text}
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            log(f"Attempt {attempt}/{MAX_RETRIES} - TTS request (voice={voice}) len={len(text)}")
+            resp = requests.post(OPENAI_TTS_URL, headers=headers, json=payload, stream=True, timeout=TIMEOUT)
+            if resp.status_code == 429:
+                # Too Many Requests -> exponential backoff with jitter
+                wait = BASE_SLEEP * (2 ** (attempt - 1))
+                wait = wait * (0.8 + 0.4 * random.random())  # jitter
+                log(f"Got 429 Too Many Requests — sleeping {wait:.1f}s then retrying...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            # successful -> stream to file
+            write_streamed_response(resp, outpath)
+            log("Saved TTS to", outpath)
+            return True
+        except requests.HTTPError as e:
+            status = getattr(e.response, "status_code", None)
+            text_excerpt = ""
+            try:
+                text_excerpt = e.response.text[:400]
+            except Exception:
+                pass
+            log(f"HTTPError on attempt {attempt}: {e} status={status} excerpt={text_excerpt}")
+            if status and 500 <= status < 600:
+                # server error -> retry after backoff
+                wait = BASE_SLEEP * (2 ** (attempt - 1))
+                log(f"Server error, sleeping {wait:.1f}s then retrying...")
+                time.sleep(wait)
+                continue
+            # other HTTP errors, don't retry many times (but try a couple times)
+            if attempt < MAX_RETRIES:
+                time.sleep(BASE_SLEEP)
+                continue
+            return False
+        except Exception as e:
+            log(f"Exception during TTS request on attempt {attempt}: {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(BASE_SLEEP * (2 ** (attempt - 1)))
+                continue
+            return False
+    return False
+
+def fallback_with_gtts(text, outpath):
+    """
+    Try to use gTTS as fallback (free). If gTTS not installed, create a short silent mp3 fallback.
+    Returns True if created some audio file.
+    """
+    try:
+        from gtts import gTTS
+        log("Using gTTS fallback...")
+        t = gTTS(text, lang='en')
+        t.save(outpath)
+        log("Saved fallback gTTS to", outpath)
+        return True
+    except Exception as e:
+        log("gTTS fallback failed or not installed:", e)
+        # create 2-second silence so pipeline continues
+        try:
+            log("Creating 2s silent mp3 fallback using ffmpeg...")
+            subprocess.run([
+                "ffmpeg", "-y", "-f", "lavfi", "-i",
+                "anullsrc=channel_layout=stereo:sample_rate=44100",
+                "-t", "2", "-q:a", "9", "-acodec", "libmp3lame", outpath
+            ], check=True)
+            log("Saved silent fallback to", outpath)
+            return True
+        except Exception as ee:
+            log("Failed to create silent fallback:", ee)
+            return False
 
 def make_wav_from_mp3(mp3_path, wav_path):
-    cmd = ["ffmpeg","-y","-i", mp3_path, "-ar","44100","-ac","2","-sample_fmt","s16", wav_path]
-    subprocess.run(cmd, check=True)
+    subprocess.run(["ffmpeg","-y","-i", mp3_path, "-ar","44100","-ac","2","-sample_fmt","s16", wav_path], check=True)
 
 def concat_wavs(wav_list, out_wav):
-    # create list file
-    list_file = tempfile.mktemp(suffix=".txt")
+    # create a temporary list file
+    list_file = OUT_DIR / "concat_list.txt"
     with open(list_file, "w", encoding="utf-8") as f:
         for w in wav_list:
-            f.write(f"file '{os.path.abspath(w)}'\n")
-    cmd = ["ffmpeg","-y","-f","concat","-safe","0","-i", list_file, "-c","copy", out_wav]
-    subprocess.run(cmd, check=True)
-    os.remove(list_file)
+            f.write(f"file '{str(Path(w).resolve())}'\n")
+    subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i", str(list_file), "-c","copy", out_wav], check=True)
+    list_file.unlink(missing_ok=True)
 
 def apply_panning(input_mp3, pan_value, out_mp3):
-    # pan_value between -1 (left) and 1 (right). We'll use stereo pan filter.
-    # convert to wav, apply pan, re-encode
-    tmp_wav = tempfile.mktemp(suffix=".wav")
-    cmd1 = ["ffmpeg","-y","-i", input_mp3, "-ar","44100","-ac","2", tmp_wav]
-    subprocess.run(cmd1, check=True)
-    # ffmpeg pan filter: stereo, left gain = (1 - p)/2? we'll use simple approach: pan=stereo|c0=c0*(1-p)/1 ... approximate using "pan=stereo|c0=FL*(1-p)+FR*p ..."
-    # Simpler approach: use "pan=stereo|c0=0.5*FL+0.5*FR" won't change. For mild panning, use "adelay" is complex.
-    # We'll use 'pan=stereo|c0=cos(a)*c0+sin(a)*c1|c1=sin(a)*c0+cos(a)*c1' where a = pan_value*(pi/4)
+    # pan_value between -1 and 1; use a mild stereo pan transformation
     import math
     a = pan_value * (math.pi/4)
+    # build filter using cos/sin (safe expression)
     c0 = f"cos({a})*c0+sin({a})*c1"
     c1 = f"sin({a})*c0+cos({a})*c1"
-    out_wav = tempfile.mktemp(suffix=".wav")
-    cmd2 = ["ffmpeg","-y","-i", tmp_wav, "-af", f"pan=stereo|c0={c0}|c1={c1}", out_wav]
-    subprocess.run(cmd2, check=True)
-    # back to mp3
-    cmd3 = ["ffmpeg","-y","-i", out_wav, "-codec:a","libmp3lame","-b:a","192k", out_mp3]
-    subprocess.run(cmd3, check=True)
+    tmp_wav = OUT_DIR / (Path(out_mp3).stem + "_tmp.wav")
+    # convert to wav then apply pan
+    subprocess.run(["ffmpeg","-y","-i", input_mp3, "-ar","44100","-ac","2", str(tmp_wav)], check=True)
+    subprocess.run(["ffmpeg","-y","-i", str(tmp_wav), "-af", f"pan=stereo|c0={c0}|c1={c1}", str(tmp_wav) + ".panned.wav"], check=True)
+    subprocess.run(["ffmpeg","-y","-i", str(tmp_wav) + ".panned.wav", "-codec:a","libmp3lame","-b:a","192k", out_mp3], check=True)
     # cleanup
-    os.remove(tmp_wav)
-    os.remove(out_wav)
+    try:
+        Path(str(tmp_wav) + ".panned.wav").unlink(missing_ok=True)
+        tmp_wav.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 def make_scene_audio(scene_idx, dialogue_list):
     part_mp3s = []
     part_wavs = []
     for j, node in enumerate(dialogue_list):
         speaker = node.get("speaker","Narrator")
-        text = node.get("text","")
+        text = node.get("text","").strip()
+        if not text:
+            continue
         voice = SPEAKER_VOICE_MAP.get(speaker, "alloy")
-        part_mp3 = f"{OUT_DIR}/scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}.mp3"
-        # request TTS
-        tts_request(text, voice, part_mp3)
-        # optional: apply light normalization/volume
-        norm_mp3 = f"{OUT_DIR}/scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}_norm.mp3"
+        part_mp3 = OUT_DIR / f"scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}.mp3"
+        success = generate_tts_openai(text, voice, str(part_mp3))
+        if not success:
+            # fallback to gTTS or silence
+            log(f"OpenAI TTS failed for speaker={speaker}. Attempting fallback.")
+            ok = fallback_with_gtts(text, str(part_mp3))
+            if not ok:
+                log(f"Fallback also failed for part {part_mp3}. Continuing with silent placeholder.")
         # convert to wav for concatenation
-        wav_path = f"{OUT_DIR}/scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}.wav"
-        make_wav_from_mp3(part_mp3, wav_path)
-        # apply mild panning if desired
-        pan_val = SPEAKER_PAN.get(speaker, 0.0)
+        wav_path = OUT_DIR / f"scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}.wav"
+        try:
+            make_wav_from_mp3(str(part_mp3), str(wav_path))
+        except Exception as e:
+            log("Failed to convert mp3 to wav, creating short silent wav as fallback:", e)
+            # create 1s silence wav
+            subprocess.run([
+                "ffmpeg", "-y", "-f", "lavfi", "-i",
+                "anullsrc=channel_layout=stereo:sample_rate=44100",
+                "-t", "1", str(wav_path)
+            ], check=True)
+        # apply panning if defined
+        pan_val = float(SPEAKER_PAN.get(speaker, 0.0))
         if abs(pan_val) > 0.01:
-            panned_mp3 = f"{OUT_DIR}/scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}_panned.mp3"
-            apply_panning(part_mp3, pan_val, panned_mp3)
-            # regenerate wav from panned mp3
-            os.remove(wav_path)
-            make_wav_from_mp3(panned_mp3, wav_path)
-            os.remove(panned_mp3)
-        part_mp3s.append(part_mp3)
-        part_wavs.append(wav_path)
+            panned_mp3 = OUT_DIR / f"scene{scene_idx}_part{j+1}_{speaker.replace(' ','_')}_panned.mp3"
+            try:
+                apply_panning(str(part_mp3), pan_val, str(panned_mp3))
+                # recreate wav from panned mp3
+                wav_path.unlink(missing_ok=True)
+                make_wav_from_mp3(str(panned_mp3), str(wav_path))
+                # cleanup panned mp3
+                panned_mp3.unlink(missing_ok=True)
+            except Exception as e:
+                log("Panning failed, ignoring panning for this part:", e)
+        part_mp3s.append(str(part_mp3))
+        part_wavs.append(str(wav_path))
 
     # concat wavs to one scene wav
-    scene_wav = f"{OUT_DIR}/scene{scene_idx}.wav"
-    concat_wavs(part_wavs, scene_wav)
-    # encode to mp3
-    scene_mp3 = f"{OUT_DIR}/scene{scene_idx}.mp3"
-    subprocess.run(["ffmpeg","-y","-i", scene_wav, "-codec:a","libmp3lame","-b:a","192k", scene_mp3], check=True)
-    # cleanup intermediate wavs
-    for w in part_wavs:
-        if os.path.exists(w):
-            os.remove(w)
-    if os.path.exists(scene_wav):
-        os.remove(scene_wav)
-    print("Built scene audio:", scene_mp3)
-    return scene_mp3
+    scene_wav = OUT_DIR / f"scene{scene_idx}.wav"
+    if part_wavs:
+        concat_wavs(part_wavs, str(scene_wav))
+        scene_mp3 = OUT_DIR / f"scene{scene_idx}.mp3"
+        subprocess.run(["ffmpeg","-y","-i", str(scene_wav), "-codec:a","libmp3lame","-b:a","192k", str(scene_mp3)], check=True)
+        # cleanup intermediate wavs
+        for w in part_wavs:
+            try:
+                Path(w).unlink(missing_ok=True)
+            except Exception:
+                pass
+        try:
+            scene_wav.unlink(missing_ok=True)
+        except Exception:
+            pass
+        log("Built scene audio:", str(scene_mp3))
+        return str(scene_mp3)
+    else:
+        # no parts -> create tiny silent mp3 so pipeline continues
+        out_silent = OUT_DIR / f"scene{scene_idx}.mp3"
+        subprocess.run(["ffmpeg","-y","-f","lavfi","-i","anullsrc=channel_layout=stereo:sample_rate=44100","-t","1","-q:a","9","-acodec","libmp3lame", str(out_silent)], check=True)
+        log("No dialogue for scene, created silent audio:", str(out_silent))
+        return str(out_silent)
 
 def main():
-    if not os.path.exists(SCRIPT_PATH):
-        raise SystemExit("Script JSON not found at output/script.json. Run generate_script.py first.")
+    if not SCRIPT_PATH.exists():
+        log("Script not found at", SCRIPT_PATH, "- run generate_script.py first.")
+        sys.exit(1)
     with open(SCRIPT_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
-
     scenes = data.get("scenes", [])
     if not scenes:
-        raise SystemExit("No scenes in script.json")
+        log("No scenes in script.json")
+        sys.exit(1)
 
-    scene_mp3_files = []
+    manifest = {"title": data.get("title","Auto Episode"), "scenes": []}
     for idx, sc in enumerate(scenes, start=1):
         dialogue = sc.get("dialogue", [])
-        if len(dialogue) == 0:
-            # fallback: use a single narrator line if no dialogue
-            txt = sc.get("summary", "") or sc.get("text", "") or "A short scene."
-            dialogue = [{"speaker":"Narrator","text":txt}]
-        mp3 = make_scene_audio(idx, dialogue)
-        scene_mp3_files.append((mp3, sc.get("image_prompt","")))
+        if not dialogue:
+            # fallback single narrator line if none provided
+            text = sc.get("summary") or sc.get("text") or "A short scene."
+            dialogue = [{"speaker":"Narrator","text":text}]
+        log(f"Building audio for scene {idx} with {len(dialogue)} lines...")
+        try:
+            mp3 = make_scene_audio(idx, dialogue)
+            manifest["scenes"].append({"scene_index": idx, "audio": mp3, "image_prompt": sc.get("image_prompt","")})
+        except Exception as e:
+            log("Failed to build scene audio:", e)
+            # still append a silent audio so later steps don't break
+            silent = OUT_DIR / f"scene{idx}_silent.mp3"
+            subprocess.run(["ffmpeg","-y","-f","lavfi","-i","anullsrc=channel_layout=stereo:sample_rate=44100","-t","1","-q:a","9","-acodec","libmp3lame", str(silent)], check=True)
+            manifest["scenes"].append({"scene_index": idx, "audio": str(silent), "image_prompt": sc.get("image_prompt","")})
 
-    # write scene manifest for later steps
-    manifest = {"title": data.get("title","Auto Episode"), "scenes": []}
-    for i,(mp3, imgprompt) in enumerate(scene_mp3_files, start=1):
-        manifest["scenes"].append({"scene_index": i, "audio": mp3, "image_prompt": imgprompt})
-    with open(OUT_DIR + "/scene_manifest.json","w",encoding="utf-8") as f:
+    with open(OUT_DIR / "scene_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
-    print("Saved scene manifest to output/scene_manifest.json")
+    log("Saved scene manifest to", OUT_DIR / "scene_manifest.json")
 
 if __name__ == "__main__":
     main()
