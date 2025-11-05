@@ -8,7 +8,7 @@ script = {
   "scenes": [
     {
       "time": "0:00",
-      "image_prompt": "cute cartoon two friends (Max and Sam) in a peaceful village square, 2D children's book style, bright colors, morning",
+      "image_prompt": "cute cartoon two friends (Max and Sam) in a peaceful village square, 2D children's book style, bright colors, morning, smiling",
       "dialogue": [
         {"speaker":"Max","text":"Good morning! I'm Max. Today we will look for a little star map."},
         {"speaker":"Sam","text":"Hello Max! I found a shiny pebble — maybe it's a map to the stars!"}
@@ -16,7 +16,7 @@ script = {
     },
     {
       "time": "1:00",
-      "image_prompt": "cartoon small forest path with glowing pebbles leading the way, child-friendly illustration",
+      "image_prompt": "cartoon small forest path with glowing pebbles leading the way, child-friendly illustration, soft lighting",
       "dialogue": [
         {"speaker":"Max","text":"Look! The pebble lights up when we step — follow me."},
         {"speaker":"Sam","text":"We must be brave together."}
@@ -24,7 +24,7 @@ script = {
     },
     {
       "time": "2:00",
-      "image_prompt": "friendly cartoon owl on a branch showing a map under the moonlight, whimsical style",
+      "image_prompt": "friendly cartoon owl on a branch showing a map under the moonlight, whimsical style, colorful stars",
       "dialogue": [
         {"speaker":"Owl","text":"Hoo-hoo! The little map needs teamwork. Share and help each other."},
         {"speaker":"Max","text":"We helped the lost star find its home."},
