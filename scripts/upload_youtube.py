@@ -38,13 +38,10 @@ A gentle short bedtime story for kids and families. Subscribe for new episodes!
     while res is None:
         status, res = req.next_chunk()
         if status:
-            print(f"Uploading {int(status.progress()*100)}%")
+            print("Uploading", int(status.progress()*100), "%")
     print("Upload finished. video id:", res["id"])
     return res["id"]
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        path = sys.argv[1]
-    else:
-        path = "output/final_episode.mp4"
+    path = sys.argv[1] if len(sys.argv)>1 else "output/final_episode.mp4"
     upload_video(path)
