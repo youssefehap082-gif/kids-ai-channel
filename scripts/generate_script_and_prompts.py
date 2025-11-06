@@ -3,58 +3,34 @@ import json, os, random, time
 OUT="output"
 os.makedirs(OUT, exist_ok=True)
 ts = int(time.time()) % 100000
-title = f"Max & Sam | Episode {ts}: Little Star Journey"
+title = f"10 Weird Facts | Episode {ts}"
 
-characters = ["Max","Sam","Lily","Alex","Emma"]
-# build 5 scenes with longer dialogues (so audio will be longer)
+# A template of 10 facts (you can change these or add randomness later)
+facts = [
+  ("Octopus has three hearts","An octopus has three hearts and blue blood."),
+  ("Immortal jellyfish","A jellyfish species can revert to its juvenile form, effectively making it biologically immortal."),
+  ("Crows recognize faces","Crows remember human faces and can keep grudges for years."),
+  ("Frogs can freeze","Some frogs freeze solid in winter and thaw in spring without harm."),
+  ("Honey never spoils","Archaeologists found edible honey in 3000-year-old tombs."),
+  ("Sharks older than trees","Sharks existed before trees did on Earth."),
+  ("Pistol shrimp shock","A pistol shrimp snaps its claw to create a bubble that stuns prey."),
+  ("Axolotls regrow limbs","Axolotls can regenerate lost limbs and parts of organs."),
+  ("Elephants mourn","Elephants display mourning behaviors for deceased herd members."),
+  ("Tardigrades survive space","Tardigrades can survive the vacuum of space.")
+]
+
 scenes = []
-scenes.append({
-  "image_prompt":"orange cat cooking food in simple cozy kitchen, warm light, cinematic",
-  "dialogue":[
-    {"speaker":"Max","text":"One morning Max woke up with a big idea. He wanted to prepare food for those in need."},
-    {"speaker":"Sam","text":"That's wonderful! Let's cook together and share with our friends."},
-    {"speaker":"Max","text":"We will start now — step by step, we cook and pack."}
-  ]
-})
-scenes.append({
-  "image_prompt":"cat carrying a bowl walking through a small village street, golden hour, heartwarming",
-  "dialogue":[
-    {"speaker":"Max","text":"Max carried the warm bowl down the lane, greeting everyone with a smile."},
-    {"speaker":"Sam","text":"People waved and the children followed, curious and happy."}
-  ]
-})
-scenes.append({
-  "image_prompt":"group of stray cats approaching, tension, but friendly resolution, cinematic",
-  "dialogue":[
-    {"speaker":"Max","text":"Some stray cats approached and seemed upset, but Max offered a plate."},
-    {"speaker":"Sam","text":"Sharing calmed them; soon they all sat together to eat."}
-  ]
-})
-scenes.append({
-  "image_prompt":"celebration in the village, kids and cats eating together, warm scene",
-  "dialogue":[
-    {"speaker":"Max","text":"The village gathered and the food was shared. Smiles were everywhere."},
-    {"speaker":"Sam","text":"This made Max very happy — helping felt great."}
-  ]
-})
-scenes.append({
-  "image_prompt":"sunset scene, Max and Sam waving goodbye, hopeful mood, cinematic",
-  "dialogue":[
-    {"speaker":"Narrator","text":"And so Max and Sam learned that kindness brings people together. Subscribe for more adventures!"}
-  ]
-})
+for i, (h,t) in enumerate(facts, start=1):
+    # craft prompt for image generation (clear, cartoon/storybook)
+    prompt = f"{h}, {t} -- cartoon storybook illustration, cute, bright colors, 1280x720, clear character"
+    scenes.append({"idx": i, "headline": h, "text": t, "prompt": prompt})
 
-script = {"title":title, "scenes":scenes}
+script = {"title": title, "scenes": scenes}
 with open(os.path.join(OUT,"script.json"), "w", encoding="utf-8") as f:
     json.dump(script, f, ensure_ascii=False, indent=2)
 
-# create prompts.json (search queries for Pexels)
-prompts = []
-for i, sc in enumerate(scenes, start=1):
-    p = sc.get("image_prompt","cute cat scene")
-    # simplify prompt into search-friendly keywords
-    search_query = p
-    prompts.append({"scene_index":i, "search_query":search_query})
+# produce prompts.json for image gen
+prompts = [{"scene_index": s["idx"], "prompt": s["prompt"]} for s in scenes]
 with open(os.path.join(OUT,"prompts.json"), "w", encoding="utf-8") as f:
     json.dump(prompts, f, ensure_ascii=False, indent=2)
 
