@@ -1,9 +1,8 @@
-name: Build & Publish Episodes (Auto 3x/day)
+name: Build & Publish Episodes (Replicate SDXL)
 
 on:
   workflow_dispatch:
   schedule:
-    # three runs per day (UTC). Edit these cron lines if you want different times.
     - cron: '0 15 * * *'   # 15:00 UTC
     - cron: '0 20 * * *'   # 20:00 UTC
     - cron: '0 1 * * *'    # 01:00 UTC
@@ -12,9 +11,10 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Install system deps
+      - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
@@ -27,30 +27,47 @@ jobs:
       - name: Install Python libs
         run: |
           python -m pip install --upgrade pip
-          pip install requests pillow opencv-python-headless google-api-python-client google-auth google-auth-oauthlib numpy soundfile
+          pip install --upgrade pip
+          pip install requests pillow opencv-python-headless replicate google-api-python-client google-auth google-auth-oauthlib numpy soundfile
 
       - name: Prepare folders
         run: |
           mkdir -p output assets
 
       - name: Generate script & prompts
-        run: python3 scripts/generate_script_and_prompts.py
+        run: |
+          python3 scripts/generate_script_and_prompts.py
+        # This should create output/script.json and output/prompts.json
 
-      - name: Generate images (Pexels -> cartoonize)
+      - name: Generate cartoon images (Replicate SDXL)
         env:
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: python3 scripts/generate_images.py
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+        run: |
+          python3 scripts/generate_cartoon_images_replicate.py
+        # This uses replicate and writes assets/scene{N}_bg.png
+
+      - name: Ensure assets (fallback if replicate failed)
+        run: |
+          python3 scripts/prepare_assets.py
 
       - name: Animate scenes & build episode
-        run: python3 scripts/animate_and_build.py
+        run: |
+          python3 scripts/animate_and_build.py
+        # Produces output/final_episode.mp4 and output/short_episode.mp4
 
-      - name: Upload to YouTube (long + short)
+      - name: Upload to YouTube (long + short) - optional
+        if: ${{ secrets.YT_CLIENT_ID && secrets.YT_CLIENT_SECRET && secrets.YT_REFRESH_TOKEN && secrets.YT_CHANNEL_ID }}
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-        run: python3 scripts/upload_youtube.py output/final_episode.mp4
+        run: |
+          python3 scripts/upload_youtube.py output/final_episode.mp4
 
-      - name: List output
-        run: ls -la output || true
+      - name: List output folder (debug)
+        run: |
+          echo "=== output files ==="
+          ls -la output || true
+          echo "=== assets files ==="
+          ls -la assets || true
