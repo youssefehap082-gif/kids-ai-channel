@@ -2,11 +2,11 @@
 set -euo pipefail
 
 OUTDIR="output"
-LIST="$OUTDIR/mylist.txt"
-FINAL="$OUTDIR/final_episode.mp4"
+LIST_BASENAME="mylist.txt"
+FINAL="final_episode.mp4"
 
-# cleanup previous list/final
-rm -f "$LIST" "$FINAL" || true
+# cleanup previous list/final (in OUTDIR)
+rm -f "$OUTDIR/$LIST_BASENAME" "$OUTDIR/$FINAL" || true
 
 # go into OUTDIR to make file paths relative to list
 pushd "$OUTDIR" >/dev/null
@@ -15,7 +15,7 @@ pushd "$OUTDIR" >/dev/null
 shopt -s nullglob
 found=0
 for f in scene*_animated.mp4; do
-  echo "file '$f'" >> "$LIST"
+  echo "file '$f'" >> "$LIST_BASENAME"
   found=1
 done
 shopt -u nullglob
@@ -26,12 +26,12 @@ if [ $found -eq 0 ]; then
   exit 1
 fi
 
-echo "Contents of $LIST:"
-cat "$LIST"
+echo "Contents of $OUTDIR/$LIST_BASENAME:"
+cat "$LIST_BASENAME"
 
 # run ffmpeg concat from inside OUTDIR (paths inside list are relative to here)
-ffmpeg -y -f concat -safe 0 -i "$LIST" -c copy "$FINAL"
+ffmpeg -y -f concat -safe 0 -i "$LIST_BASENAME" -c copy "$FINAL"
 
 popd >/dev/null
 
-echo "Final episode at $OUTDIR/$(basename "$FINAL")"
+echo "Final episode at $OUTDIR/$FINAL"
