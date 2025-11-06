@@ -1,5 +1,5 @@
 # scripts/upload_youtube.py
-import os, requests, sys
+import os, sys, requests
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
@@ -19,18 +19,13 @@ def get_access_token():
     r.raise_for_status()
     return r.json()["access_token"]
 
-def upload_video(file_path):
+def upload(file_path, title, desc, tags, made_for_kids=True, privacy="public"):
     token = get_access_token()
     creds = Credentials(token)
     youtube = build('youtube', 'v3', credentials=creds)
-    title = "Max & Sam | Episode 1: The Little Star Map"
-    description = """Max & Sam - Episode 1: The Little Star Map 🌟
-A gentle short bedtime story for kids and families. Subscribe for new episodes!
-#BedtimeStory #KidsStories #AnimatedStory"""
-    tags = ["kids stories","bedtime story","animated story","family friendly","short stories","Max","Sam"]
     body = {
-        "snippet": {"title": title, "description": description, "tags": tags, "categoryId": "22"},
-        "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": True}
+        "snippet": {"title": title, "description": desc, "tags": tags, "categoryId": "22"},
+        "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": made_for_kids}
     }
     media = MediaFileUpload(file_path, chunksize=-1, resumable=True, mimetype='video/*')
     req = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
@@ -39,9 +34,17 @@ A gentle short bedtime story for kids and families. Subscribe for new episodes!
         status, res = req.next_chunk()
         if status:
             print("Uploading", int(status.progress()*100), "%")
-    print("Upload finished. video id:", res["id"])
+    print("Uploaded. video id:", res["id"])
     return res["id"]
 
 if __name__ == "__main__":
     path = sys.argv[1] if len(sys.argv)>1 else "output/final_episode.mp4"
-    upload_video(path)
+    title = "Max & Sam | New Episode"
+    desc = "Auto episode generated. Subscribe for more."
+    tags = ["kids stories","animated","cartoon","shorts"]
+    vid = upload(path, title, desc, tags)
+    # upload short if exists
+    short = "output/short_episode.mp4"
+    if os.path.exists(short):
+        print("Uploading short version...")
+        upload(short, title + " (Short)", desc + "\nShort version", tags)
