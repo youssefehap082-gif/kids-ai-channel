@@ -27,7 +27,6 @@ jobs:
       - name: Install Python libs
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade pip
           pip install requests pillow opencv-python-headless replicate google-api-python-client google-auth google-auth-oauthlib numpy soundfile
 
       - name: Prepare folders
@@ -37,14 +36,12 @@ jobs:
       - name: Generate script & prompts
         run: |
           python3 scripts/generate_script_and_prompts.py
-        # This should create output/script.json and output/prompts.json
 
       - name: Generate cartoon images (Replicate SDXL)
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
         run: |
           python3 scripts/generate_cartoon_images_replicate.py
-        # This uses replicate and writes assets/scene{N}_bg.png
 
       - name: Ensure assets (fallback if replicate failed)
         run: |
@@ -53,16 +50,20 @@ jobs:
       - name: Animate scenes & build episode
         run: |
           python3 scripts/animate_and_build.py
-        # Produces output/final_episode.mp4 and output/short_episode.mp4
 
       - name: Upload to YouTube (long + short) - optional
-        if: ${{ secrets.YT_CLIENT_ID && secrets.YT_CLIENT_SECRET && secrets.YT_REFRESH_TOKEN && secrets.YT_CHANNEL_ID }}
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         run: |
+          # If any YT secret is missing, skip upload (don't fail the workflow)
+          if [ -z "$YT_CLIENT_ID" ] || [ -z "$YT_CLIENT_SECRET" ] || [ -z "$YT_REFRESH_TOKEN" ] || [ -z "$YT_CHANNEL_ID" ]; then
+            echo "YouTube secrets missing — skipping upload."
+            echo "To enable upload set YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN, YT_CHANNEL_ID in repository secrets."
+            exit 0
+          fi
           python3 scripts/upload_youtube.py output/final_episode.mp4
 
       - name: List output folder (debug)
