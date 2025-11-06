@@ -22,7 +22,7 @@ def get_access_token():
 def upload(file_path, title, desc, tags, made_for_kids=True, privacy="public"):
     token = get_access_token()
     creds = Credentials(token)
-    youtube = build('youtube', 'v3', credentials=creds)
+    youtube = build('youtube', 'v3', credentials=creds, cache_discovery=False)
     body = {
         "snippet": {"title": title, "description": desc, "tags": tags, "categoryId": "22"},
         "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": made_for_kids}
@@ -39,9 +39,14 @@ def upload(file_path, title, desc, tags, made_for_kids=True, privacy="public"):
 
 if __name__ == "__main__":
     path = sys.argv[1] if len(sys.argv)>1 else "output/final_episode.mp4"
-    title = "Max & Sam | New Episode"
-    desc = "Auto episode generated. Subscribe for more."
-    tags = ["kids stories","animated","cartoon","shorts"]
+    script = {}
+    try:
+        script = json.load(open("output/script.json", encoding="utf-8"))
+    except:
+        script = {"title":"Auto Episode"}
+    title = script.get("title","Auto Episode")
+    desc = "Auto-generated episode. Subscribe for more."
+    tags = ["facts","top10","weirdfacts","AI"]
     vid = upload(path, title, desc, tags)
     # upload short if exists
     short = "output/short_episode.mp4"
