@@ -27,7 +27,7 @@ jobs:
       - name: Install Python libs
         run: |
           python -m pip install --upgrade pip
-          pip install requests pillow opencv-python-headless replicate google-api-python-client google-auth google-auth-oauthlib numpy soundfile
+          pip install requests pillow opencv-python-headless replicate gTTS google-api-python-client google-auth google-auth-oauthlib numpy soundfile
 
       - name: Prepare folders
         run: |
@@ -47,6 +47,10 @@ jobs:
         run: |
           python3 scripts/prepare_assets.py
 
+      - name: Generate TTS (gTTS)
+        run: |
+          python3 scripts/tts_gtts.py
+
       - name: Animate scenes & build episode
         run: |
           python3 scripts/animate_and_build.py
@@ -58,10 +62,8 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         run: |
-          # If any YT secret is missing, skip upload (don't fail the workflow)
           if [ -z "$YT_CLIENT_ID" ] || [ -z "$YT_CLIENT_SECRET" ] || [ -z "$YT_REFRESH_TOKEN" ] || [ -z "$YT_CHANNEL_ID" ]; then
             echo "YouTube secrets missing — skipping upload."
-            echo "To enable upload set YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN, YT_CHANNEL_ID in repository secrets."
             exit 0
           fi
           python3 scripts/upload_youtube.py output/final_episode.mp4
