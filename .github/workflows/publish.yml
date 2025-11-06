@@ -1,13 +1,15 @@
-name: Build And Publish Episodes
+name: Build & Publish Episodes (Auto 3x/day)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '06 06 * * *'
-    - cron: '18 18 * * *'
+    # three runs per day (UTC). Edit these cron lines if you want different times.
+    - cron: '0 15 * * *'   # 15:00 UTC
+    - cron: '0 20 * * *'   # 20:00 UTC
+    - cron: '0 1 * * *'    # 01:00 UTC
 
 jobs:
-  build-publish:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,57 +17,40 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libsndfile1 imagemagick
+          sudo apt-get install -y ffmpeg imagemagick
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install python deps
+      - name: Install Python libs
         run: |
-          pip install --upgrade pip
-          pip install requests google-api-python-client google-auth google-auth-oauthlib pillow gTTS numpy scipy soundfile
+          python -m pip install --upgrade pip
+          pip install requests pillow opencv-python-headless google-api-python-client google-auth google-auth-oauthlib numpy soundfile
 
-      - name: Prepare output folder
-        run: mkdir -p output assets
-
-      - name: Generate script (episode)
+      - name: Prepare folders
         run: |
-          python3 scripts/generate_script.py
-          echo "Script:"
-          sed -n '1,200p' output/script.json || true
+          mkdir -p output assets
 
-      - name: Generate images (backgrounds + characters + mouths)
+      - name: Generate script & prompts
+        run: python3 scripts/generate_script_and_prompts.py
+
+      - name: Generate images (Pexels -> cartoonize)
         env:
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-        run: |
-          python3 scripts/generate_all_images.py
-          ls -la assets || true
-          ls -la output || true
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: python3 scripts/generate_images.py
 
-      - name: Generate TTS per character (OpenAI)
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python3 scripts/tts_openai.py
-          ls -la output || true
+      - name: Animate scenes & build episode
+        run: python3 scripts/animate_and_build.py
 
-      - name: Lip-sync & build per-scene video
-        run: |
-          python3 scripts/lipsync_and_build.py
-          ls -la output || true
-
-      - name: Build final episode (concat)
-        run: |
-          bash scripts/concat_scenes.sh
-          ls -la output || true
-
-      - name: Upload to YouTube
+      - name: Upload to YouTube (long + short)
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-        run: |
-          python3 scripts/upload_youtube.py output/final_episode.mp4
+        run: python3 scripts/upload_youtube.py output/final_episode.mp4
+
+      - name: List output
+        run: ls -la output || true
