@@ -1,119 +1,112 @@
-# scripts/generate_image.py
-# Try HF image generation; if it fails, draw a simple cute cartoon scene with Pillow
-import os, sys, requests, base64
+# scripts/generate_images.py
+import os, sys, time, requests, json
 from pathlib import Path
+from PIL import Image
+import io
+import numpy as np
+import cv2
 
-HF_TOKEN = os.environ.get("HF_API_TOKEN", "").strip()
-MODEL = "prompthero/openjourney-v4"
-URL = f"https://api-inference.huggingface.co/models/{MODEL}"
+PEXELS_KEY = os.environ.get("PEXELS_API_KEY", "").strip()
+OUT = Path("output")
+ASSETS = Path("assets")
+ASSETS.mkdir(parents=True, exist_ok=True)
 
-OUT = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("output/scene_fallback.png")
-PROMPT = sys.argv[1] if len(sys.argv) > 1 else "cute cartoon scene"
+def search_pexels(query):
+    if not PEXELS_KEY:
+        return None
+    url = "https://api.pexels.com/v1/search"
+    headers = {"Authorization": PEXELS_KEY}
+    params = {"query": query, "per_page": 10}
+    r = requests.get(url, headers=headers, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    photos = data.get("photos", [])
+    if not photos:
+        return None
+    # choose best resolution (original or large2x)
+    for ph in photos:
+        src = ph.get("src",{})
+        url = src.get("large2x") or src.get("large") or src.get("original")
+        if url:
+            return url
+    return None
 
-OUT.parent.mkdir(parents=True, exist_ok=True)
+def download_image(url):
+    r = requests.get(url, timeout=60)
+    r.raise_for_status()
+    return Image.open(io.BytesIO(r.content)).convert("RGB")
 
-def save_bytes_image(path, content):
-    with open(path, "wb") as f:
-        f.write(content)
-    print("Saved image:", path)
+def cartoonize_pil(pil_img):
+    # convert to OpenCV
+    img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    # Resize to 1280x720 preserving aspect
+    h, w = img.shape[:2]
+    target_w, target_h = 1280, 720
+    scale = min(target_w / w, target_h / h)
+    new_w, new_h = int(w*scale), int(h*scale)
+    img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    # pad to target size
+    top = (target_h - new_h) // 2
+    left = (target_w - new_w) // 2
+    canvas = np.full((target_h, target_w, 3), 255, dtype=np.uint8)
+    canvas[top:top+new_h, left:left+new_w] = img
+    img = canvas
 
-def generate_via_hf(prompt, outpath):
-    if not HF_TOKEN:
-        print("No HF_TOKEN set, skipping HF generation.")
-        return False
-    try:
-        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-        payload = {"inputs": prompt}
-        r = requests.post(URL, headers=headers, json=payload, timeout=120)
-        r.raise_for_status()
-        ctype = r.headers.get("content-type", "")
-        if ctype.startswith("image/"):
-            save_bytes_image(outpath, r.content)
-            return True
-        data = r.json()
-        # check for base64 field
-        if isinstance(data, list) and len(data) > 0 and "generated_image" in data[0]:
-            b64 = data[0]["generated_image"]
-            save_bytes_image(outpath, base64.b64decode(b64))
-            return True
-        print("HF returned unexpected format.")
-        return False
-    except Exception as e:
-        print("HF generation error:", e)
-        return False
+    # Cartoon effect: bilateral filter + edge mask
+    num_bilateral = 6
+    img_color = img.copy()
+    for _ in range(num_bilateral):
+        img_color = cv2.bilateralFilter(img_color, d=9, sigmaColor=75, sigmaSpace=75)
 
-def draw_fallback(prompt, outpath):
-    # draw a friendly cartoon scene (sky, sun, two simple characters) using Pillow
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except Exception as e:
-        print("Pillow not installed:", e)
-        return False
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img_blur = cv2.medianBlur(img_gray, 7)
+    edges = cv2.adaptiveThreshold(img_blur, 255,
+                                  cv2.ADAPTIVE_THRESH_MEAN_C,
+                                  cv2.THRESH_BINARY, blockSize=9, C=2)
 
-    W, H = 1280, 720
-    img = Image.new("RGB", (W, H), "#A8E6FF")
-    draw = ImageDraw.Draw(img)
+    # convert back to color edges
+    edges_col = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+    # combine color and edges
+    cartoon = cv2.bitwise_and(img_color, edges_col)
+    # optional: increase saturation and contrast
+    hsv = cv2.cvtColor(cartoon, cv2.COLOR_BGR2HSV).astype("float32")
+    hsv[...,1] = hsv[...,1]*1.15
+    hsv[...,2] = np.clip(hsv[...,2]*1.05, 0, 255)
+    cartoon = cv2.cvtColor(hsv.astype("uint8"), cv2.COLOR_HSV2BGR)
 
-    # sky gradient
-    for y in range(H):
-        r = int(168 + (y/H) * 40)
-        g = int(230 + (y/H) * 10)
-        b = int(255 - (y/H) * 40)
-        draw.line([(0, y), (W, y)], fill=(r, g, b))
+    # convert back to PIL RGB
+    pil_out = Image.fromarray(cv2.cvtColor(cartoon, cv2.COLOR_BGR2RGB))
+    return pil_out
 
-    # sun
-    draw.ellipse((W-150, 50, W-50, 150), fill=(255, 220, 80))
-
-    # ground
-    draw.rectangle([0, H-160, W, H], fill=(170, 215, 125))
-
-    # simple character function
-    def draw_character(cx, cy, face_color, body_color, label):
-        # head
-        r = 60
-        draw.ellipse((cx-r, cy-r, cx+r, cy+r), fill=face_color, outline=(0,0,0))
-        # eyes
-        draw.ellipse((cx-25, cy-15, cx-15, cy-5), fill=(0,0,0))
-        draw.ellipse((cx+15, cy-15, cx+25, cy-5), fill=(0,0,0))
-        # smile
-        draw.arc((cx-25, cy-5, cx+25, cy+35), start=200, end=340, fill=(0,0,0), width=3)
-        # body
-        draw.rectangle((cx-40, cy+60, cx+40, cy+160), fill=body_color, outline=(0,0,0))
-        # legs
-        draw.rectangle((cx-30, cy+160, cx-5, cy+200), fill=body_color, outline=(0,0,0))
-        draw.rectangle((cx+5, cy+160, cx+30, cy+200), fill=body_color, outline=(0,0,0))
-        # label
+def main():
+    prompts_path = OUT / "prompts.json"
+    if not prompts_path.exists():
+        print("Missing output/prompts.json — run generate_script_and_prompts.py first")
+        return
+    prompts = json.load(open(prompts_path, encoding="utf-8"))
+    for p in prompts:
+        idx = p["scene_index"]
+        q = p["search_query"]
+        print(f"Scene {idx} search: {q}")
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
-        except:
-            font = ImageFont.load_default()
-        draw.text((cx-40, cy+205), label, fill=(20,20,20), font=font)
+            img_url = search_pexels(q)
+            if img_url:
+                print("Found Pexels image:", img_url)
+                img = download_image(img_url)
+            else:
+                print("No Pexels results — using placeholder generated image")
+                # generate a simple gradient if nothing found
+                from PIL import ImageDraw, ImageFont
+                img = Image.new("RGB", (1280,720), (200,230,255))
+                d = ImageDraw.Draw(img)
+                d.text((40,40), q, fill=(10,10,10))
+            cartoon = cartoonize_pil(img)
+            out_path = ASSETS / f"scene{idx}_bg.png"
+            cartoon.save(out_path, "PNG")
+            print("Saved cartoonized scene to", out_path)
+            time.sleep(1.0)
+        except Exception as e:
+            print("Error generating scene", idx, e)
 
-    # draw two characters: left & right
-    draw_character(380, 300, face_color=(255,230,200), body_color=(255,150,150), label="Max")
-    draw_character(820, 300, face_color=(255,235,210), body_color=(150,180,255), label="Sam")
-
-    # small star icons
-    draw.ellipse((W-200, 30, W-180, 50), fill=(255,240,100))
-    for i in range(5):
-        x = 200 + i*120
-        y = 80 + (i%2)*20
-        draw.ellipse((x, y, x+10, y+10), fill=(255,240,100))
-
-    # optional: small caption (no prompt text)
-    try:
-        font2 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-    except:
-        font2 = ImageFont.load_default()
-    caption = "Max & Sam - Episode"
-    draw.text((20, 20), caption, fill=(10,10,10), font=font2)
-
-    img.save(outpath, "PNG")
-    print("Saved fallback cartoon image to", outpath)
-    return True
-
-# main flow
-ok = generate_via_hf(PROMPT, str(OUT))
-if not ok:
-    print("Using drawn fallback image (Pillow).")
-    draw_fallback(PROMPT, str(OUT))
+if __name__ == "__main__":
+    main()
