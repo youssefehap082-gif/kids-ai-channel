@@ -5,7 +5,6 @@ from gtts import gTTS
 
 OUT = Path("output")
 STATE = Path("state/state.json")
-
 script_path = OUT / "script.json"
 if not script_path.exists():
     print("Missing output/script.json")
@@ -35,7 +34,6 @@ if STATE.exists():
     except:
         state = {}
 last_voice = state.get("last_voice","female")
-# alternate
 voice_gender = "male" if last_voice=="female" else "female"
 state["last_voice"] = voice_gender
 open(STATE, "w", encoding="utf-8").write(json.dumps(state, ensure_ascii=False, indent=2))
@@ -45,14 +43,11 @@ print("Selected voice gender:", voice_gender)
 if OPENAI_KEY:
     try:
         print("Trying OpenAI TTS...")
-        # Try the OpenAI audio speech endpoint. This may require model name 'gpt-4o-mini-tts' or similar.
-        # We'll attempt a request and write streamed response.
         url = "https://api.openai.com/v1/audio/speech"
         headers = {
             "Authorization": f"Bearer {OPENAI_KEY}",
             "Content-Type": "application/json"
         }
-        # choose a voice name depending on gender - these names may vary by availability; fallback handled
         voice_name = "alloy" if voice_gender=="male" else "verse"
         payload = {
             "model": "gpt-4o-mini-tts",
