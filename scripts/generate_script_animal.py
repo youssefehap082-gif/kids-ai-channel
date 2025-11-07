@@ -6,7 +6,6 @@ STATE_FILE = os.path.join(STATE_DIR, "state.json")
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(STATE_DIR, exist_ok=True)
 
-# small DB - extendable
 FACTS_DB = {
     "panda": {
         "name": "Giant Panda",
@@ -81,7 +80,6 @@ FACTS_DB = {
     }
 }
 
-# state functions
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
@@ -94,9 +92,8 @@ def save_state(state):
     json.dump(state, open(STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 state = load_state()
-recent = state.get("recent_animals", [])  # list of recent animals (most recent first)
+recent = state.get("recent_animals", [])
 
-# pick an animal that is not in recent (lookback of len(recent) maybe 5)
 choices = list(FACTS_DB.keys())
 random.shuffle(choices)
 animal_key = None
@@ -105,7 +102,6 @@ for c in choices:
         animal_key = c
         break
 if animal_key is None:
-    # everything used recently; pick randomly but not same as last
     animal_key = random.choice(choices)
     if recent and animal_key == recent[0] and len(choices)>1:
         animal_key = choices[1]
@@ -113,7 +109,7 @@ if animal_key is None:
 data = FACTS_DB[animal_key]
 title = f"All About {data['name']} — {len(data['facts'])} Amazing Facts"
 
-# Build scenes: intro + facts + outro
+# build scenes: intro + facts + outro
 scenes = []
 idx = 1
 scenes.append({
@@ -141,7 +137,6 @@ scenes.append({
     "text": "Thanks for watching! Subscribe for daily animal facts and hit the bell."
 })
 
-# SEO fields
 description_lines = [
     title,
     "",
@@ -167,9 +162,9 @@ script = {
 open(os.path.join(OUT,"script.json"), "w", encoding="utf-8").write(json.dumps(script, ensure_ascii=False, indent=2))
 print("Wrote output/script.json — animal:", data['name'])
 
-# update state: push this animal to recent (keep last 5)
+# update state
 recent.insert(0, animal_key)
-recent = recent[:5]
+recent = recent[:10]
 state["recent_animals"] = recent
 save_state(state)
 print("Updated state recent_animals:", recent)
