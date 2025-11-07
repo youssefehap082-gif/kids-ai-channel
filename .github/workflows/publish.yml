@@ -1,4 +1,4 @@
-name: Auto Cute Animal Shorts (Pexels)
+name: Auto Animal Facts (Pexels)
 
 on:
   workflow_dispatch:
@@ -29,9 +29,9 @@ jobs:
         run: |
           mkdir -p assets clips output
 
-      - name: Generate script (captions + queries)
+      - name: Generate script (animal)
         run: |
-          python3 scripts/generate_script.py
+          python3 scripts/generate_script_animal.py
 
       - name: Download stock clips (Pexels)
         env:
@@ -43,9 +43,9 @@ jobs:
         run: |
           python3 scripts/tts_gtts.py
 
-      - name: Build short video
+      - name: Build final video
         run: |
-          python3 scripts/build_short.py
+          python3 scripts/build_animal_video.py
 
       - name: Upload to YouTube (optional)
         env:
@@ -58,7 +58,9 @@ jobs:
             echo "YouTube secrets missing — skipping upload."
             exit 0
           fi
-          python3 scripts/upload_youtube.py output/final_short.mp4
+          python3 scripts/upload_youtube.py output/final_animal.mp4
+
       - name: List outputs
         run: |
           ls -la output || true
+          ls -la clips || true
