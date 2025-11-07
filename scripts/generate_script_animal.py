@@ -1,12 +1,12 @@
 # scripts/generate_script_animal.py
 import json, os, time, random
 OUT = "output"
+STATE_DIR = "state"
+STATE_FILE = os.path.join(STATE_DIR, "state.json")
 os.makedirs(OUT, exist_ok=True)
+os.makedirs(STATE_DIR, exist_ok=True)
 
-# If you want a specific animal, set environment variable ANIMAL (e.g., ANIMAL=panda)
-animal_env = os.environ.get("ANIMAL", "").strip().lower()
-
-# Small facts database for common animals (extendable)
+# small DB - extendable
 FACTS_DB = {
     "panda": {
         "name": "Giant Panda",
@@ -58,61 +58,96 @@ FACTS_DB = {
             "They have complex social structures and rituals around the dead.",
             "Elephants can communicate with low-frequency sounds over long distances."
         ]
+    },
+    "cat": {
+        "name": "Cat",
+        "queries": ["cute cat playing", "kitten sleeping", "cat close up"],
+        "brief": "Cats are small carnivores domesticated thousands of years ago.",
+        "facts": [
+            "Cats sleep up to 16 hours a day.",
+            "They have excellent night vision.",
+            "Cats use whiskers to sense their surroundings."
+        ]
+    },
+    "dog": {
+        "name": "Dog",
+        "queries": ["puppy playing", "dog running", "cute dog close up"],
+        "brief": "Dogs are domesticated mammals known for loyalty and companionship.",
+        "facts": [
+            "Dogs have a sense of smell thousands of times better than humans.",
+            "They can be trained to perform a wide range of tasks.",
+            "Different breeds have very different behaviors and skills."
+        ]
     }
 }
 
-# fallback animal list
-fallback_animals = list(FACTS_DB.keys())
+# state functions
+def load_state():
+    if os.path.exists(STATE_FILE):
+        try:
+            return json.load(open(STATE_FILE, encoding="utf-8"))
+        except:
+            return {}
+    return {}
 
-if animal_env and animal_env in FACTS_DB:
-    animal_key = animal_env
-else:
-    animal_key = random.choice(fallback_animals)
+def save_state(state):
+    json.dump(state, open(STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+
+state = load_state()
+recent = state.get("recent_animals", [])  # list of recent animals (most recent first)
+
+# pick an animal that is not in recent (lookback of len(recent) maybe 5)
+choices = list(FACTS_DB.keys())
+random.shuffle(choices)
+animal_key = None
+for c in choices:
+    if c not in recent:
+        animal_key = c
+        break
+if animal_key is None:
+    # everything used recently; pick randomly but not same as last
+    animal_key = random.choice(choices)
+    if recent and animal_key == recent[0] and len(choices)>1:
+        animal_key = choices[1]
 
 data = FACTS_DB[animal_key]
-title = f"All About {data['name']} — 7 Amazing Facts"
-# create narration: intro + facts sections + outro
-intro = f"Meet the {data['name']}! {data['brief']}"
-facts_texts = data["facts"]
+title = f"All About {data['name']} — {len(data['facts'])} Amazing Facts"
+
+# Build scenes: intro + facts + outro
 scenes = []
-# we'll create one scene per fact + intro + outro
 idx = 1
-# intro scene
 scenes.append({
     "idx": idx,
     "headline": "Introduction",
     "query": data["queries"][0],
-    "caption": f"Introduction: {data['brief']}",
-    "text": intro
+    "caption": f"Intro: {data['brief']}",
+    "text": f"Meet the {data['name']}. {data['brief']}"
 })
 idx += 1
-# facts scenes
-for f in facts_texts:
+for f in data["facts"]:
     scenes.append({
         "idx": idx,
         "headline": f"Fact {idx-1}",
         "query": random.choice(data["queries"]),
         "caption": f,
-        "text": f"{f}"
+        "text": f
     })
     idx += 1
-# outro
-outro_text = "Thanks for watching! Subscribe for daily animal facts and hit the bell to not miss the next video."
 scenes.append({
     "idx": idx,
     "headline": "Wrap up",
     "query": data["queries"][-1],
-    "caption": "Thanks for watching!",
-    "text": outro_text
+    "caption": "Thanks for watching! Subscribe for daily animal facts.",
+    "text": "Thanks for watching! Subscribe for daily animal facts and hit the bell."
 })
 
 # SEO fields
 description_lines = [
     title,
     "",
-    "Today we learn quick facts about the " + data['name'] + ".",
+    f"Today we learn quick facts about the {data['name']}.",
     "",
-    "Videos source: Pexels (royalty-free clips).",
+    "Videos source: Pexels (royalty-free).",
     "",
     "Subscribe for daily animal facts!"
 ]
@@ -129,7 +164,12 @@ script = {
     "scenes": scenes
 }
 
-with open(os.path.join(OUT,"script.json"), "w", encoding="utf-8") as f:
-    json.dump(script, f, ensure_ascii=False, indent=2)
-
+open(os.path.join(OUT,"script.json"), "w", encoding="utf-8").write(json.dumps(script, ensure_ascii=False, indent=2))
 print("Wrote output/script.json — animal:", data['name'])
+
+# update state: push this animal to recent (keep last 5)
+recent.insert(0, animal_key)
+recent = recent[:5]
+state["recent_animals"] = recent
+save_state(state)
+print("Updated state recent_animals:", recent)
