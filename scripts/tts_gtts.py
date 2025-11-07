@@ -24,6 +24,6 @@ for s in scenes:
         tts = gTTS(text, lang='en', slow=False)
         tts.save(str(fn))
         print("Saved TTS", fn)
-        time.sleep(0.5)
+        time.sleep(0.6)
     except Exception as e:
         print("gTTS error for scene", idx, e)
