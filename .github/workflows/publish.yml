@@ -1,42 +1,43 @@
-name: Publish Animal Info Videos
+name: Build & Upload (debug-safe)
 
 on:
-  schedule:
-    - cron: "0 */8 * * *" # تشغيل كل 8 ساعات
   workflow_dispatch:
+  schedule:
+    - cron: '0 */8 * * *'  # كل 8 ساعات
 
 jobs:
-  build_and_upload:
+  debug-build-upload:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 120
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install system deps
         run: |
-          python3 -m pip install --upgrade pip
-          pip install requests openai google-auth google-auth-oauthlib google-api-python-client pexels-api Pillow moviepy pydub
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg imagemagick wget
 
-      - name: Build info video
+      - name: Install python libs
         run: |
-          python3 scripts/build_info_video.py
+          python -m pip install --upgrade pip
+          pip install requests google-api-python-client google-auth gTTS Pillow moviepy pexels_api
 
-      - name: Upload to YouTube
-        run: |
-          python3 scripts/upload_youtube.py output
+      - name: Run debug & fix orchestrator
         env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+        run: |
+          python3 scripts/debug_and_fix.py
