@@ -21,7 +21,6 @@ scenes = script.get("scenes", [])
 headers = {"Authorization": API_KEY}
 search_url = "https://api.pexels.com/videos/search"
 
-# helper
 def try_search_and_download(query, outpath, attempts=3):
     params = {"query": query, "per_page": 15, "size": "medium"}
     for a in range(attempts):
@@ -36,7 +35,6 @@ def try_search_and_download(query, outpath, attempts=3):
             if not videos:
                 print("No videos for query:", query)
                 return False
-            # pick best candidate (prefer hd)
             chosen = None
             for v in videos:
                 files = v.get("video_files", [])
@@ -49,7 +47,6 @@ def try_search_and_download(query, outpath, attempts=3):
             if not chosen:
                 chosen = videos[0]["video_files"][0]
             url = chosen.get("link")
-            # download
             print("Downloading:", url)
             with requests.get(url, stream=True, timeout=60) as resp:
                 resp.raise_for_status()
@@ -63,7 +60,6 @@ def try_search_and_download(query, outpath, attempts=3):
             time.sleep(1)
     return False
 
-# For each scene try to download a clip; if fails try alternative queries and generic fallbacks
 generic_fallbacks = ["cute animals", "wildlife close up", "animal close up"]
 
 for s in scenes:
@@ -73,10 +69,8 @@ for s in scenes:
     print(f"Scene {idx}: searching for '{q}'")
     ok = try_search_and_download(q, outpath, attempts=2)
     if not ok:
-        # try variations
         alt_queries = [
             q + " close up",
-            q.replace(" ", " "),
             q.split()[0] if " " in q else q
         ]
         found = False
@@ -86,6 +80,5 @@ for s in scenes:
                 found = True
                 break
         if not found:
-            print("Could not download clip for scene", idx, "- will skip this scene.")
-    # small sleep to be polite
+            print("Could not download clip for scene", idx, "- skipping.")
     time.sleep(0.6)
