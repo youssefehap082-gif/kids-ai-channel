@@ -1,5 +1,5 @@
-# scripts/build_single_video.py
-import os, json, subprocess, math, random, shutil
+# scripts/build_single_video.py (verbose + manifest)
+import os, json, subprocess, random, shutil, time
 from pathlib import Path
 
 MODE = os.environ.get("MODE","info")
@@ -8,118 +8,113 @@ CLIPS = Path("clips")
 ASSETS_MUSIC = Path("assets/music")
 OUT.mkdir(parents=True, exist_ok=True)
 CLIPS.mkdir(parents=True, exist_ok=True)
+ASSETS_MUSIC.mkdir(parents=True, exist_ok=True)
 
-script = json.load(open(OUT/"script.json", encoding="utf-8"))
+script_path = OUT / "script.json"
+if not script_path.exists():
+    print("[ERROR] output/script.json missing. Aborting build.")
+    raise SystemExit(1)
+
+script = json.load(open(script_path, encoding="utf-8"))
 scenes = script.get("scenes", [])
-animal_key = script.get("animal_key", "animal")
-title_base = script.get("title", f"All About {animal_key}")
-
-narration = OUT / "narration.mp3"
+animal_key = script.get("animal_key","animal")
 
 def get_duration(path):
     try:
         out = subprocess.check_output(["ffprobe","-v","error","-show_entries","format=duration",
-                                       "-of","default=noprint_wrappers=1:nokey=1", str(path)])
+                                       "-of","default=noprint_wrappers=1:nokey=1", str(path)], stderr=subprocess.DEVNULL)
         return float(out.strip())
-    except:
+    except Exception:
         return None
 
+manifest = {"built_at": time.time(), "files": []}
+
+print("[INFO] MODE:", MODE)
 if MODE == "info":
-    print("Building INFO video with narration.")
-    # Build short concatenated styled clips
-    clip_length = 25
+    print("[INFO] Building info video...")
+    clip_length = 20
     styled_files = []
     for s in scenes:
         idx = s.get("idx")
         src = CLIPS / f"clip{idx}.mp4"
+        print("[INFO] processing scene", idx, "src exists:", src.exists())
         if not src.exists():
-            print("Missing clip", src, "— skipping")
+            print("[WARN] Missing clip", src, " — skipping")
             continue
         trimmed = OUT / f"clip{idx}_trim.mp4"
         subprocess.run(["ffmpeg","-y","-ss","0","-i", str(src), "-t", str(clip_length),
                         "-vf", "scale=1280:720,setsar=1","-c:v","libx264","-preset","fast",
                         "-c:a","aac","-b:a","128k", str(trimmed)], check=True)
-        caption = s.get("caption","")
-        caption_safe = caption.replace("'", r"\'").replace(":", r'\:')
+        caption = s.get("caption","").replace("'", r"\'").replace(":", r'\:')
         styled = OUT / f"clip{idx}_styled.mp4"
-        drawtext = f"drawtext=text='{caption_safe}':fontcolor=white:fontsize=36:box=1:boxcolor=0x00000099:boxborderw=10:x=(w-text_w)/2:y=h-120"
+        drawtext = f"drawtext=text='{caption}':fontcolor=white:fontsize=36:box=1:boxcolor=0x00000099:boxborderw=10:x=(w-text_w)/2:y=h-120"
         subprocess.run(["ffmpeg","-y","-i", str(trimmed), "-vf", drawtext,
                         "-c:v","libx264","-preset","fast","-c:a","aac","-b:a","128k", str(styled)], check=True)
         styled_files.append(styled)
     if not styled_files:
-        print("No styled clips — cannot build info video.")
+        print("[ERROR] No styled clips produced for info video.")
     else:
         listf = OUT / "info_list.txt"
         with open(listf, "w", encoding="utf-8") as f:
             for p in styled_files:
                 f.write(f"file '{p.resolve()}'\n")
-        final_tmp = OUT / "info_tmp.mp4"
+        final_tmp = OUT / f"final_{animal_key}_tmp.mp4"
         subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i", str(listf), "-c","copy", str(final_tmp)], check=True)
         final_info = OUT / f"final_{animal_key}_info.mp4"
-        if narration.exists():
+        narr = OUT / "narration.mp3"
+        if narr.exists():
             vdur = get_duration(final_tmp) or 0
-            adur = get_duration(narration) or 0
-            temp_audio = OUT / "narr_loop.mp3"
-            if adur > 0 and adur < vdur:
-                subprocess.run(["ffmpeg","-y","-stream_loop","-1","-i", str(narration), "-t", str(vdur), "-c","aac", str(temp_audio)], check=True)
-                audio_in = temp_audio
-            elif adur > 0:
-                subprocess.run(["ffmpeg","-y","-ss","0","-i", str(narration), "-t", str(vdur), "-c","copy", str(temp_audio)], check=True)
-                audio_in = temp_audio
+            adur = get_duration(narr) or 0
+            tmp_audio = OUT / "narr_loop_tmp.mp3"
+            if adur and adur < vdur:
+                subprocess.run(["ffmpeg","-y","-stream_loop","-1","-i", str(narr), "-t", str(vdur), "-c","aac", str(tmp_audio)], check=True)
+                audio_in = tmp_audio
             else:
-                audio_in = None
-            if audio_in:
-                subprocess.run(["ffmpeg","-y","-i", str(final_tmp), "-i", str(audio_in), "-c:v","copy","-c:a","aac","-b:a","192k", str(final_info)], check=True)
-                try: temp_audio.unlink()
-                except: pass
-            else:
-                shutil.move(str(final_tmp), str(final_info))
+                subprocess.run(["ffmpeg","-y","-ss","0","-i", str(narr), "-t", str(vdur), "-c","copy", str(tmp_audio)], check=True)
+                audio_in = tmp_audio
+            subprocess.run(["ffmpeg","-y","-i", str(final_tmp), "-i", str(audio_in), "-c:v","copy","-c:a","aac","-b:a","192k", str(final_info)], check=True)
+            try: tmp_audio.unlink()
+            except: pass
         else:
             shutil.move(str(final_tmp), str(final_info))
-        print("Built info video:", final_info)
-        # build short <=120s
-        short = OUT / f"short_{animal_key}_info.mp4"
-        subprocess.run(["ffmpeg","-y","-i", str(final_info), "-ss","0","-t","120","-c:v","libx264","-c:a","aac", str(short)], check=True)
-        print("Built short:", short)
+        print("[OK] Built info video:", final_info)
+        manifest["files"].append(str(final_info.name))
 
-else:
-    # Ambient mode: build 1 ambient video ~7 minutes with music
-    print("Building AMBIENT video (no narration, music background if available).")
+elif MODE == "ambient":
+    print("[INFO] Building ambient video...")
     available = sorted(CLIPS.glob("clip*.mp4"))
     if not available:
-        print("No clips available to build ambient video.")
+        print("[ERROR] No clips found for ambient build.")
     else:
-        target_minutes = 7
-        target_seconds = int(target_minutes * 60)
-        segments = []
-        cur_dur = 0
-        idx = 0
-        while cur_dur < target_seconds:
-            src = available[idx % len(available)]
-            seg_out = OUT / f"ambient_seg_{idx}.mp4"
-            seg_len = min(60, target_seconds - cur_dur)
-            subprocess.run(["ffmpeg","-y","-ss","0","-i", str(src), "-t", str(seg_len),
+        target_seconds = 7*60
+        parts = []
+        cur = 0
+        i = 0
+        while cur < target_seconds:
+            src = available[i % len(available)]
+            outseg = OUT / f"ambient_seg_{i}.mp4"
+            seglen = min(60, target_seconds - cur)
+            subprocess.run(["ffmpeg","-y","-ss","0","-i", str(src), "-t", str(seglen),
                             "-vf","scale=1280:720,setsar=1","-c:v","libx264","-preset","fast",
-                            "-c:a","aac","-b:a","128k", str(seg_out)], check=True)
-            segments.append(seg_out)
-            cur_dur += seg_len
-            idx += 1
+                            "-c:a","aac","-b:a","128k", str(outseg)], check=True)
+            parts.append(outseg)
+            cur += seglen
+            i += 1
         listf = OUT / "ambient_list.txt"
         with open(listf, "w", encoding="utf-8") as f:
-            for p in segments:
+            for p in parts:
                 f.write(f"file '{p.resolve()}'\n")
         tmp = OUT / f"ambient_{animal_key}_tmp.mp4"
         subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i", str(listf), "-c","copy", str(tmp)], check=True)
-        # choose music file if available
-        music_files = list(ASSETS_MUSIC.glob("*.mp3")) + list(ASSETS_MUSIC.glob("*.wav"))
+        music_files = sorted(ASSETS_MUSIC.glob("*.mp3")) + sorted(ASSETS_MUSIC.glob("*.wav"))
         final = OUT / f"ambient_{animal_key}.mp4"
         if music_files:
             music = random.choice(music_files)
             vdur = get_duration(tmp) or 0
-            if vdur > 0:
-                music_tmp = OUT / f"ambient_music_loop.mp3"
-                adur = get_duration(music) or 0
-                if adur > 0 and adur < vdur:
+            if vdur and get_duration(music):
+                music_tmp = OUT / "ambient_music_loop.mp3"
+                adur = get_duration(music)
+                if adur < vdur:
                     subprocess.run(["ffmpeg","-y","-stream_loop","-1","-i", str(music), "-t", str(vdur), "-c","aac", str(music_tmp)], check=True)
                 else:
                     subprocess.run(["ffmpeg","-y","-ss","0","-i", str(music), "-t", str(vdur), "-c","copy", str(music_tmp)], check=True)
@@ -129,16 +124,13 @@ else:
             else:
                 shutil.move(str(tmp), str(final))
         else:
-            # no music - keep silent ambient
             shutil.move(str(tmp), str(final))
-        # cleanup segment files
-        for p in segments:
-            try: p.unlink()
-            except: pass
-        try: listf.unlink()
-        except: pass
-        print("Built ambient video:", final)
-        # build short podcast (<120s) for Shorts if desired
-        short = OUT / f"short_{animal_key}_ambient.mp4"
-        subprocess.run(["ffmpeg","-y","-i", str(final), "-ss","0","-t","120","-c:v","libx264","-c:a","aac", str(short)], check=True)
-        print("Built ambient short:", short)
+        print("[OK] Built ambient video:", final)
+        manifest["files"].append(str(final.name))
+
+manifest_path = OUT / ".build_manifest.json"
+open(manifest_path, "w", encoding="utf-8").write(json.dumps(manifest, indent=2))
+print("[MANIFEST] Written:", manifest_path)
+print("[OUTPUT FILES]")
+for f in OUT.glob("*.mp4"):
+    print(" -", f.name, f.stat().st_size)
