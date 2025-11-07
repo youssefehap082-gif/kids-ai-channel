@@ -8,8 +8,7 @@ TH.mkdir(parents=True, exist_ok=True)
 
 font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-# pick the main produced file (info prioritized)
-candidates = list(OUT.glob("final_*")) + list(OUT.glob("ambient_*"))
+candidates = list(OUT.glob("final_*.mp4")) + list(OUT.glob("ambient_*.mp4")) + list(OUT.glob("short_*.mp4"))
 for vid in candidates:
     name = vid.stem
     thumb_path = TH / f"{name}.jpg"
@@ -25,7 +24,6 @@ for vid in candidates:
             font = ImageFont.load_default()
         rect_h = 140
         draw.rectangle([(0,H-rect_h),(W,H)], fill=(0,0,0,200))
-        # make title more friendly
         title = name.replace("_", " ").replace("final ", "").title()
         draw.text((20, H-rect_h+20), title, fill=(255,255,255), font=font)
         img.save(thumb_path, quality=85)
