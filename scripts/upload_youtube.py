@@ -10,9 +10,11 @@ CLIENT_SECRET = os.environ.get("YT_CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
 CHANNEL_ID = os.environ.get("YT_CHANNEL_ID")
 
+OUT = Path(sys.argv[1] if len(sys.argv)>1 else "output")
+
 if not (CLIENT_ID and CLIENT_SECRET and REFRESH_TOKEN and CHANNEL_ID):
-    print("YouTube credentials missing in env.")
-    sys.exit(1)
+    print("YouTube credentials missing in env. Skipping upload.")
+    sys.exit(0)
 
 def get_access_token():
     r = requests.post("https://oauth2.googleapis.com/token", data={
@@ -41,7 +43,6 @@ def upload(file_path, title, desc, tags, made_for_kids=True, privacy="public", t
             print("Uploading", int(status.progress()*100), "%")
     video_id = res["id"]
     print("Uploaded. video id:", video_id)
-    # set thumbnail if provided
     if thumb and os.path.exists(thumb):
         try:
             youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(thumb)).execute()
@@ -59,16 +60,16 @@ def main(out_folder):
         script = {"title":"Animal Facts", "description":"Auto generated", "tags":[]}
     base_title = script.get("title","Animal Facts")
     desc = script.get("description","Auto generated animal facts video")
-    # ensure Pexels credit
     if "Pexels" not in desc:
         desc = desc + "\n\nVideos source: Pexels (royalty-free)"
     tags = script.get("tags", [])
-    # find final videos
-    for video in sorted(OUT.glob("final_*")):
+    # main info video
+    for video in sorted(OUT.glob(f"final_*{script.get('animal_key','')}*")):
         title = base_title + " (Info)"
         thumb = Path("thumbnails") / f"{video.stem}.jpg"
         upload(str(video), title, desc, tags, made_for_kids=False, privacy="public", thumb=str(thumb) if thumb.exists() else None)
-    for video in sorted(OUT.glob("ambient_*")):
+    # ambient videos
+    for video in sorted(OUT.glob(f"ambient_*{script.get('animal_key','')}*")):
         title = base_title + " - Relaxing Clips"
         thumb = Path("thumbnails") / f"{video.stem}.jpg"
         upload(str(video), title, desc + "\nAmbient video (no narration).", tags, made_for_kids=False, privacy="public", thumb=str(thumb) if thumb.exists() else None)
