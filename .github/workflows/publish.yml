@@ -1,43 +1,39 @@
-name: Build & Upload (debug-safe)
+name: Publish - Info (3x/day)
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 */8 * * *'  # كل 8 ساعات
+    - cron: '0 6 * * *'    # 06:00 UTC
+    - cron: '0 14 * * *'   # 14:00 UTC
+    - cron: '0 22 * * *'   # 22:00 UTC
+  workflow_dispatch:
 
 jobs:
-  debug-build-upload:
+  build-info:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install system deps
+      - name: Install deps
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg imagemagick wget
-
-      - name: Install python libs
-        run: |
           python -m pip install --upgrade pip
-          pip install requests google-api-python-client google-auth gTTS Pillow moviepy pexels_api
+          pip install requests gTTS Pillow moviepy pexels_api google-api-python-client google-auth
 
-      - name: Run debug & fix orchestrator
+      - name: Generate one info video
         env:
+          MODE: info
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         run: |
-          python3 scripts/debug_and_fix.py
+          python3 scripts/generate_one_video.py
