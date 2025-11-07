@@ -1,104 +1,42 @@
-name: Auto Animal Facts - 5 times/day (info+ambient)
+name: Publish Animal Info Videos
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'   # 00:00 UTC
-    - cron: '0 8 * * *'   # 08:00 UTC
-    - cron: '0 12 * * *'  # 12:00 UTC
-    - cron: '0 16 * * *'  # 16:00 UTC
-    - cron: '0 20 * * *'  # 20:00 UTC
+    - cron: "0 */8 * * *" # تشغيل كل 8 ساعات
+  workflow_dispatch:
 
 jobs:
-  build-and-publish:
+  build_and_upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Install system deps & ffmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick
-
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install Python libs
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install requests pillow gTTS google-api-python-client google-auth google-auth-oauthlib moviepy
+          python3 -m pip install --upgrade pip
+          pip install requests openai google-auth google-auth-oauthlib google-api-python-client pexels-api Pillow moviepy pydub
 
-      - name: Prepare folders
+      - name: Build info video
         run: |
-          mkdir -p assets clips output state thumbnails assets/music
+          python3 scripts/build_info_video.py
 
-      - name: Determine MODE (info / ambient)
-        id: determine_mode
+      - name: Upload to YouTube
         run: |
-          H=$(date -u +%H)
-          echo "UTC hour: $H"
-          MODE="info"
-          # hours mapping: ambient at 00 and 20; info otherwise
-          if [ "$H" = "00" ] || [ "$H" = "20" ]; then MODE="ambient"; fi
-          echo "MODE=$MODE" >> $GITHUB_OUTPUT
-
-      - name: Print chosen mode
-        run: |
-          echo "Mode selected: ${{ steps.determine_mode.outputs.MODE }}"
-
-      - name: Generate script for this run (single animal)
-        run: |
-          python3 scripts/generate_script_animal.py
-
-      - name: Download stock clips (Pexels)
-        env:
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: |
-          python3 scripts/download_stock_videos.py
-
-      - name: Fetch music if needed (optional)
-        env:
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-        run: |
-          python3 scripts/music_fetcher.py
-
-      - name: Generate narration (only for info mode)
-        if: ${{ steps.determine_mode.outputs.MODE == 'info' }}
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python3 scripts/tts_service.py
-
-      - name: Build single video according to mode
-        env:
-          MODE: ${{ steps.determine_mode.outputs.MODE }}
-        run: |
-          python3 scripts/build_single_video.py
-
-      - name: Create thumbnail
-        run: |
-          python3 scripts/generate_thumbnail.py
-
-      - name: Upload to YouTube (optional)
+          python3 scripts/upload_youtube.py output
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-        run: |
-          python3 scripts/upload_youtube.py output
-
-      - name: List outputs
-        run: |
-          echo "=== output files ==="
-          ls -la output || true
-          echo "=== clips ==="
-          ls -la clips || true
-          echo "=== thumbnails ==="
-          ls -la thumbnails || true
-          echo "=== music files ==="
-          ls -la assets/music || true
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
