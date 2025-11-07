@@ -9,7 +9,12 @@ ASSETS = Path("assets")
 OUT.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
 
-script = json.load(open(OUT/"script.json", encoding="utf-8"))
+script_path = OUT / "script.json"
+if not script_path.exists():
+    print("Missing output/script.json")
+    raise SystemExit(1)
+
+script = json.load(open(script_path, encoding="utf-8"))
 scenes = script.get("scenes", [])
 
 FRAMERATE = 24
@@ -24,6 +29,22 @@ def get_audio_duration(path):
     except Exception:
         return None
 
+def text_height(draw, text, font):
+    """
+    Return pixel height of text using available methods.
+    Prefer draw.textbbox, fallback to getmask.
+    """
+    try:
+        bbox = draw.textbbox((0,0), text, font=font)
+        return bbox[3] - bbox[1]
+    except Exception:
+        try:
+            # font.getmask works in many Pillow versions
+            return font.getmask(text).size[1]
+        except Exception:
+            # last resort estimate
+            return int(font.size * 1.2)
+
 def make_scene_frames(idx, scene):
     sketch_path = ASSETS / f"scene{idx}_sketch.png"
     if not sketch_path.exists():
@@ -35,11 +56,11 @@ def make_scene_frames(idx, scene):
         dur = max(60.0, min(120.0, len(scene.get("text",""))/5.0 + 40.0))  # aim 60-120s per scene
     print(f"Scene {idx} duration {dur:.1f}s")
 
-    # font
+    # load fonts (fall back to default)
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
         font_h = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 54)
-    except:
+    except Exception:
         font = ImageFont.load_default()
         font_h = font
 
@@ -58,20 +79,19 @@ def make_scene_frames(idx, scene):
     sk_h = int(sketch.height * scale)
     sketch = sketch.resize((sk_w, sk_h), Image.LANCZOS)
 
-    # char reveal: distribute characters across frames
     for f in range(total_frames):
-        chars_to_show = int((f / (total_frames - 1)) * total_chars) if total_frames>1 else total_chars
+        chars_to_show = int((f / (total_frames - 1)) * total_chars) if total_frames > 1 else total_chars
         text_shown = wb_text[:chars_to_show]
         img = Image.new("RGB", (1280,720), (255,255,255))
         draw = ImageDraw.Draw(img)
-        # paste sketch right
+        # paste sketch on right
         x_sk = 1280 - sk_w - 60
         y_sk = (720 - sk_h)//2
         img.paste(sketch, (x_sk, y_sk), sketch)
-        # draw headline top-left
+        # headline top-left
         left_margin = 60
         draw.text((left_margin, 20), scene.get("headline",""), fill=(0,0,0), font=font_h)
-        # write text lines
+        # prepare wrapped lines for visible text
         lines = []
         for p in text_shown.split("\n"):
             wrapped = textwrap.wrap(p, width=30)
@@ -79,25 +99,32 @@ def make_scene_frames(idx, scene):
                 lines.append("")
             else:
                 lines.extend(wrapped)
+        # draw lines
         y = 110
         for line in lines:
             draw.text((left_margin, y), line, fill=(0,0,0), font=font)
-            y += font.getsize(line)[1] + 8
-        # optionally overlay a hand image if exists for effect
+            # compute height robustly
+            hline = text_height(draw, line, font)
+            y += hline + 8
+
+        # optional hand overlay
         hand_path = ASSETS / "hand.png"
         if hand_path.exists():
             try:
                 hand = Image.open(hand_path).convert("RGBA")
-                # position the hand near the latest text (approx bottom-left)
                 hw = int(200)
                 hh = int(hand.height * (hw / hand.width))
                 hand = hand.resize((hw, hh), Image.LANCZOS)
-                img.paste(hand, (left_margin + 200, min(y, 520)), hand)
+                # place hand near the last written area (approx)
+                paste_y = min(y, 520)
+                img.paste(hand, (left_margin + 200, paste_y), hand)
             except Exception:
                 pass
+
         frame_path = frames_dir / f"frame_{f:05d}.png"
         img.save(frame_path)
-    # render to video
+
+    # render frames to video
     tmp = OUT / f"scene{idx}_tmp.mp4"
     cmd = [
         "ffmpeg","-y","-r", str(FRAMERATE), "-i", str(frames_dir / "frame_%05d.png"),
@@ -105,7 +132,8 @@ def make_scene_frames(idx, scene):
     ]
     print("Rendering frames to:", tmp)
     subprocess.run(cmd, check=True)
-    # attach audio
+
+    # attach audio if exists
     final_scene = OUT / f"scene{idx}_final.mp4"
     if audio_path.exists():
         subprocess.run([
@@ -114,12 +142,14 @@ def make_scene_frames(idx, scene):
         ], check=True)
     else:
         shutil.move(str(tmp), str(final_scene))
-    # cleanup
+
+    # cleanup frames folder and tmp
     shutil.rmtree(frames_dir)
     try:
         tmp.unlink(missing_ok=True)
     except:
         pass
+
     return final_scene
 
 scene_files = []
@@ -147,7 +177,6 @@ cwd = os.getcwd()
 os.chdir(str(OUT))
 try:
     subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i","mylist.txt","-c","copy","final_episode.mp4"], check=True)
-    # make short <= 120s
     subprocess.run(["ffmpeg","-y","-i","final_episode.mp4","-ss","0","-t","120","-c","copy","short_episode.mp4"], check=True)
     print("Built final_episode.mp4 and short_episode.mp4")
 finally:
