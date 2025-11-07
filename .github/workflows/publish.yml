@@ -1,15 +1,16 @@
-name: Build & Publish Episodes (Replicate SDXL)
+name: Build & Publish Whiteboard Episodes
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 15 * * *'   # 15:00 UTC
-    - cron: '0 20 * * *'   # 20:00 UTC
-    - cron: '0 1 * * *'    # 01:00 UTC
+    - cron: '0 15 * * *'   # 15:00 UTC (good US afternoon)
+    - cron: '0 20 * * *'   # 20:00 UTC (evening EU)
+    - cron: '0 1 * * *'    # 01:00 UTC (night/early US)
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -33,29 +34,33 @@ jobs:
         run: |
           mkdir -p output assets
 
-      - name: Generate script & prompts
+      - name: Generate story & prompts
         run: |
-          python3 scripts/generate_script_and_prompts.py
+          python3 scripts/generate_story.py
 
-      - name: Generate cartoon images (Replicate SDXL)
+      - name: Generate images (Replicate SDXL)
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
         run: |
-          python3 scripts/generate_cartoon_images_replicate.py
+          python3 scripts/generate_images_replicate.py
 
-      - name: Ensure assets (fallback if replicate failed)
+      - name: Ensure assets (fallback)
         run: |
           python3 scripts/prepare_assets.py
+
+      - name: Generate sketches (whiteboard look)
+        run: |
+          python3 scripts/generate_sketches.py
 
       - name: Generate TTS (gTTS)
         run: |
           python3 scripts/tts_gtts.py
 
-      - name: Animate scenes & build episode
+      - name: Build whiteboard video
         run: |
-          python3 scripts/animate_and_build.py
+          python3 scripts/whiteboard_anim.py
 
-      - name: Upload to YouTube (long + short) - optional
+      - name: Upload to YouTube (optional)
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
@@ -68,7 +73,7 @@ jobs:
           fi
           python3 scripts/upload_youtube.py output/final_episode.mp4
 
-      - name: List output folder (debug)
+      - name: List output (debug)
         run: |
           echo "=== output files ==="
           ls -la output || true
