@@ -12,7 +12,7 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -41,8 +41,8 @@ jobs:
         run: |
           H=$(date -u +%H)
           echo "UTC hour: $H"
-          # Map hours to mode: info at 08,12,16; ambient at 00,20
           MODE="info"
+          # hours mapping: ambient at 00 and 20; info otherwise
           if [ "$H" = "00" ] || [ "$H" = "20" ]; then MODE="ambient"; fi
           echo "MODE=$MODE" >> $GITHUB_OUTPUT
 
@@ -83,7 +83,7 @@ jobs:
         run: |
           python3 scripts/generate_thumbnail.py
 
-      - name: Upload to YouTube (optional, will skip if secrets missing)
+      - name: Upload to YouTube (optional)
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
