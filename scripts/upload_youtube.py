@@ -1,5 +1,5 @@
 # scripts/upload_youtube.py
-import os, sys, requests
+import os, sys, json, requests
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
@@ -24,7 +24,7 @@ def upload(file_path, title, desc, tags, made_for_kids=True, privacy="public"):
     creds = Credentials(token)
     youtube = build('youtube', 'v3', credentials=creds, cache_discovery=False)
     body = {
-        "snippet": {"title": title, "description": desc, "tags": tags, "categoryId": "22"},
+        "snippet": {"title": title, "description": desc, "tags": tags, "categoryId": "1"},
         "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": made_for_kids}
     }
     media = MediaFileUpload(file_path, chunksize=-1, resumable=True, mimetype='video/*')
@@ -43,13 +43,19 @@ if __name__ == "__main__":
     try:
         script = json.load(open("output/script.json", encoding="utf-8"))
     except:
-        script = {"title":"Auto Episode"}
-    title = script.get("title","Auto Episode")
-    desc = "Auto-generated episode. Subscribe for more."
-    tags = ["facts","top10","weirdfacts","AI"]
-    vid = upload(path, title, desc, tags)
-    # upload short if exists
+        script = {"title":"Whiteboard Episode"}
+    title = script.get("title","Whiteboard Episode")
+    desc_lines = [
+        title,
+        "",
+        "Subscribe for new episodes!",
+        "",
+        "Hashtags: #kids #story #whiteboard #animated"
+    ]
+    desc = "\n".join(desc_lines)
+    tags = ["kids stories","whiteboard","animated","storytime","bedtime"]
+    upload(path, title, desc, tags, made_for_kids=True, privacy="public")
+    # upload short
     short = "output/short_episode.mp4"
     if os.path.exists(short):
-        print("Uploading short version...")
-        upload(short, title + " (Short)", desc + "\nShort version", tags)
+        upload(short, title + " (Short)", desc + "\nShort version", tags, made_for_kids=True, privacy="public")
