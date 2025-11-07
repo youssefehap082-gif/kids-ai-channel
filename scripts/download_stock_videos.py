@@ -1,5 +1,5 @@
 # scripts/download_stock_videos.py
-import os, requests, json, sys
+import os, requests, json, sys, time
 from pathlib import Path
 OUT = Path("output")
 CLIPS = Path("clips")
@@ -21,43 +21,71 @@ scenes = script.get("scenes", [])
 headers = {"Authorization": API_KEY}
 search_url = "https://api.pexels.com/videos/search"
 
+# helper
+def try_search_and_download(query, outpath, attempts=3):
+    params = {"query": query, "per_page": 15, "size": "medium"}
+    for a in range(attempts):
+        try:
+            r = requests.get(search_url, headers=headers, params=params, timeout=30)
+            if r.status_code != 200:
+                print(f"Pexels API error {r.status_code}: {r.text}")
+                time.sleep(1)
+                continue
+            data = r.json()
+            videos = data.get("videos", [])
+            if not videos:
+                print("No videos for query:", query)
+                return False
+            # pick best candidate (prefer hd)
+            chosen = None
+            for v in videos:
+                files = v.get("video_files", [])
+                for f in files:
+                    if f.get("file_type")=="video/mp4" and f.get("quality") in ("hd","sd"):
+                        chosen = f
+                        break
+                if chosen:
+                    break
+            if not chosen:
+                chosen = videos[0]["video_files"][0]
+            url = chosen.get("link")
+            # download
+            print("Downloading:", url)
+            with requests.get(url, stream=True, timeout=60) as resp:
+                resp.raise_for_status()
+                with open(outpath, "wb") as fh:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        if chunk:
+                            fh.write(chunk)
+            return True
+        except Exception as e:
+            print("Download attempt error:", e)
+            time.sleep(1)
+    return False
+
+# For each scene try to download a clip; if fails try alternative queries and generic fallbacks
+generic_fallbacks = ["cute animals", "wildlife close up", "animal close up"]
+
 for s in scenes:
     q = s.get("query","animal")
     idx = s.get("idx")
-    params = {"query": q, "per_page": 8, "size": "medium"}
-    print(f"Searching Pexels for scene {idx}: {q}")
-    try:
-        r = requests.get(search_url, headers=headers, params=params, timeout=30)
-        if r.status_code != 200:
-            print("Pexels API error:", r.status_code, r.text)
-            continue
-        data = r.json()
-        videos = data.get("videos", [])
-        if not videos:
-            print("No videos found for", q)
-            continue
-        # pick best candidate (prefer hd)
-        chosen = None
-        for v in videos:
-            files = v.get("video_files", [])
-            # prefer mp4 with quality hd or sd
-            for f in files:
-                if f.get("file_type")=="video/mp4" and f.get("quality") in ("hd","sd"):
-                    chosen = f
-                    break
-            if chosen:
+    outpath = CLIPS / f"clip{idx}.mp4"
+    print(f"Scene {idx}: searching for '{q}'")
+    ok = try_search_and_download(q, outpath, attempts=2)
+    if not ok:
+        # try variations
+        alt_queries = [
+            q + " close up",
+            q.replace(" ", " "),
+            q.split()[0] if " " in q else q
+        ]
+        found = False
+        for aq in alt_queries + generic_fallbacks:
+            print("Trying alternative query:", aq)
+            if try_search_and_download(aq, outpath, attempts=2):
+                found = True
                 break
-        if not chosen:
-            chosen = videos[0]["video_files"][0]
-        url = chosen.get("link")
-        outpath = CLIPS / f"clip{idx}.mp4"
-        print("Downloading", url)
-        with requests.get(url, stream=True, timeout=60) as resp:
-            resp.raise_for_status()
-            with open(outpath, "wb") as fh:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    if chunk:
-                        fh.write(chunk)
-        print("Saved", outpath)
-    except Exception as e:
-        print("Error for scene", idx, e)
+        if not found:
+            print("Could not download clip for scene", idx, "- will skip this scene.")
+    # small sleep to be polite
+    time.sleep(0.6)
