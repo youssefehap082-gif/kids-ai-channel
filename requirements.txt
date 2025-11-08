@@ -10,3 +10,4 @@ tenacity==8.5.0
 python-dateutil==2.9.0.post0
 pytz==2024.2
 tqdm==4.66.5
+gTTS==2.5.1
