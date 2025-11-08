@@ -10,16 +10,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Generate & publish 2 long videos
+
+      - name: Generate & publish 2 long videos (with auto retry)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -30,4 +34,9 @@ jobs:
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
           USE_BG_MUSIC: "true"
         run: |
-          python -u src/main_long.py
+          for i in 1 2 3
+          do
+            echo "🚀 Attempt $i to upload long videos..."
+            python -u src/main_long.py && break || echo "⚠️ Upload failed, retrying in 2 hours..."
+            sleep 7200  # wait 2 hours then retry
+          done
