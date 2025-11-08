@@ -1,18 +1,29 @@
-import os, tempfile, random, glob
+import os, tempfile, random
 from pathlib import Path
 from typing import List
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, vfx
 from pydub import AudioSegment
+from PIL import Image
+
+# إصلاح مشكلة ANTIALIAS
+if not hasattr(Image, "ANTIALIAS"):
+    try:
+        Image.ANTIALIAS = Image.Resampling.LANCZOS
+    except Exception:
+        pass
 
 def download_files(urls: List[str], workdir: Path) -> List[Path]:
     import requests
     paths = []
     for i, u in enumerate(urls):
-        r = requests.get(u, timeout=300)
-        r.raise_for_status()
-        p = workdir / f"clip_{i}.mp4"
-        p.write_bytes(r.content)
-        paths.append(p)
+        try:
+            r = requests.get(u, timeout=300)
+            r.raise_for_status()
+            p = workdir / f"clip_{i}.mp4"
+            p.write_bytes(r.content)
+            paths.append(p)
+        except Exception as e:
+            print(f"⚠️ Failed to download video: {e}")
     return paths
 
 def pick_bg_music(music_dir: Path) -> Path | None:
@@ -25,7 +36,6 @@ def make_voicebed(voice_paths: List[Path], bg_music: Path | None = None, music_g
         narration += AudioSegment.from_file(p)
     if bg_music:
         music = AudioSegment.from_file(bg_music) - abs(music_gain_db)
-        # loop music to narration length
         looped = (music * (int(len(narration) / len(music)) + 2))[:len(narration)]
         mix = looped.overlay(narration)
         out = mix
@@ -38,8 +48,13 @@ def make_voicebed(voice_paths: List[Path], bg_music: Path | None = None, music_g
 def compose_video(video_paths: List[Path], audio_path: Path, min_duration=185) -> Path:
     clips = []
     for p in video_paths:
-        c = VideoFileClip(str(p)).fx(vfx.resize, height=1080)
-        clips.append(c)
+        try:
+            c = VideoFileClip(str(p)).fx(vfx.resize, height=1080)
+            clips.append(c)
+        except Exception as e:
+            print(f"⚠️ Skipping invalid video: {e}")
+    if not clips:
+        raise Exception("❌ No valid videos to compose.")
     seq, cur, i = [], 0, 0
     while cur < min_duration and clips:
         c = clips[i % len(clips)]
@@ -56,11 +71,16 @@ def compose_video(video_paths: List[Path], audio_path: Path, min_duration=185) -
 def compose_short(video_paths: List[Path], audio_path: Path, target_duration=58) -> Path:
     clips = []
     for p in video_paths:
-        c = VideoFileClip(str(p)).resize(height=1920)
-        if c.w > 1080:
-            x = int((c.w - 1080) / 2)
-            c = c.crop(x1=x, y1=0, x2=x+1080, y2=1920)
-        clips.append(c)
+        try:
+            c = VideoFileClip(str(p)).resize(height=1920)
+            if c.w > 1080:
+                x = int((c.w - 1080) / 2)
+                c = c.crop(x1=x, y1=0, x2=x+1080, y2=1920)
+            clips.append(c)
+        except Exception as e:
+            print(f"⚠️ Skipping invalid short video: {e}")
+    if not clips:
+        raise Exception("❌ No valid videos for short.")
     seq, cur = [], 0
     for c in clips:
         take = min(c.duration, max(2, target_duration - cur))
