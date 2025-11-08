@@ -1,18 +1,13 @@
 import os, tempfile, random
 from pathlib import Path
 from typing import List
-from moviepy.editor import (
-    VideoFileClip, AudioFileClip, concatenate_videoclips, TextClip, CompositeVideoClip, vfx
-)
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, ImageClip, vfx
+from PIL import Image, ImageDraw, ImageFont
 from pydub import AudioSegment
-from PIL import Image
 
-# إصلاح ANTIALIAS لمكتبة Pillow
+# إصلاح ANTIALIAS في الإصدارات الحديثة من Pillow
 if not hasattr(Image, "ANTIALIAS"):
-    try:
-        Image.ANTIALIAS = Image.Resampling.LANCZOS
-    except Exception:
-        pass
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
 
 def download_files(urls: List[str], workdir: Path) -> List[Path]:
     import requests
@@ -47,35 +42,43 @@ def make_voicebed(voice_paths: List[Path], bg_music: Path | None = None, music_g
     out.export(out_path, format="mp3")
     return out_path
 
-# =====================
-#  INTRO & OUTRO CLIPS
-# =====================
+
+# ========= Custom Text Intro & Outro =========
+
+def make_text_image(text_top, text_bottom=None, bg_color=(10, 40, 10), size=(1920, 1080)):
+    img = Image.new("RGB", size, color=bg_color)
+    draw = ImageDraw.Draw(img)
+    try:
+        font_big = ImageFont.truetype("arial.ttf", 100)
+        font_small = ImageFont.truetype("arial.ttf", 60)
+    except:
+        font_big = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+
+    W, H = size
+    w1, h1 = draw.textsize(text_top, font=font_big)
+    draw.text(((W - w1) / 2, H / 2 - 100), text_top, fill="white", font=font_big)
+
+    if text_bottom:
+        w2, h2 = draw.textsize(text_bottom, font=font_small)
+        draw.text(((W - w2) / 2, H / 2 + 50), text_bottom, fill="gold", font=font_small)
+
+    tmp = Path(tempfile.mkdtemp()) / "text_image.jpg"
+    img.save(tmp)
+    return tmp
+
 
 def make_intro(duration=4):
-    txt = TextClip(
-        "WildFacts Hub", fontsize=100, color="white", font="Arial-Bold", stroke_color="black", stroke_width=3
-    ).set_position("center").set_duration(duration)
-    sub = TextClip(
-        "Discover Amazing Animal Facts!", fontsize=50, color="#FFD700", font="Arial-Bold"
-    ).set_position(("center", 800)).set_duration(duration)
-    bg = TextClip("", size=(1920, 1080), color=(0, 80, 0)).set_opacity(0.6).set_duration(duration)
-    intro = CompositeVideoClip([bg, txt, sub]).fadein(0.5).fadeout(0.5)
-    return intro
+    path = make_text_image("WildFacts Hub", "Discover Amazing Animal Facts!")
+    return ImageClip(str(path)).set_duration(duration).fadein(0.5).fadeout(0.5)
+
 
 def make_outro(duration=6):
-    main = TextClip(
-        "Don't forget to subscribe and turn on the bell!", fontsize=70, color="white", font="Arial-Bold", stroke_color="black", stroke_width=3
-    ).set_position("center").set_duration(duration)
-    small = TextClip(
-        "Thanks for watching!", fontsize=50, color="#FFD700", font="Arial-Bold"
-    ).set_position(("center", 850)).set_duration(duration)
-    bg = TextClip("", size=(1920, 1080), color=(20, 20, 20)).set_opacity(0.6).set_duration(duration)
-    outro = CompositeVideoClip([bg, main, small]).fadein(0.5).fadeout(0.5)
-    return outro
+    path = make_text_image("Subscribe & Turn On The Bell!", "Thanks for watching!")
+    return ImageClip(str(path)).set_duration(duration).fadein(0.5).fadeout(0.5)
 
-# =====================
-#  COMPOSERS
-# =====================
+
+# ========= Compose Final Videos =========
 
 def compose_video(video_paths: List[Path], audio_path: Path, min_duration=185) -> Path:
     clips = []
@@ -106,6 +109,7 @@ def compose_video(video_paths: List[Path], audio_path: Path, min_duration=185) -
     for c in clips: c.close()
     return out_path
 
+
 def compose_short(video_paths: List[Path], audio_path: Path, target_duration=58) -> Path:
     clips = []
     for p in video_paths:
@@ -125,8 +129,7 @@ def compose_short(video_paths: List[Path], audio_path: Path, target_duration=58)
         take = min(c.duration, max(2, target_duration - cur))
         seq.append(c.subclip(0, take))
         cur += take
-        if cur >= target_duration:
-            break
+        if cur >= target_duration: break
 
     main_clip = concatenate_videoclips(seq, method="compose").set_audio(AudioFileClip(str(audio_path)))
     intro = make_intro(duration=3)
