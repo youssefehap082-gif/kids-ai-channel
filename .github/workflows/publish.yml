@@ -18,16 +18,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install system deps
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg imagemagick wget
-          python -m pip install --upgrade pip
-          pip install requests gTTS Pillow moviepy pexels_api google-api-python-client google-auth
 
-      - name: Generate one info video
+      - name: Install python libs
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 gTTS Pillow moviepy pexels_api
+
+      - name: Generate one info video and upload
         env:
           MODE: info
+          MIN_DURATION: "180"
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
