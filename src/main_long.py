@@ -1,6 +1,5 @@
 import os, tempfile, requests, time
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
 from animals import load_animals_pool
 from utils import pick_unique_animals, chunk_text
 from media_sources import pick_video_urls
@@ -14,6 +13,8 @@ POOL_CSV = ROOT / "data" / "animals_pool.csv"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY","")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL","gpt-4o-mini")
 USE_BG_MUSIC = os.getenv("USE_BG_MUSIC","false").lower() == "true"
+
+SUBSCRIBE_LINE = "Don’t forget to subscribe to our channel and turn on the notification bell!"
 
 def gen_facts(animal: str) -> list:
     prompt = f"""
@@ -35,29 +36,13 @@ One sentence per fact (<= 20 words). Neutral educational tone. Numbered list.
 
 def narration_script(animal: str, facts: list) -> str:
     intro = f"Here are ten amazing facts about the {animal}."
-    outro = ("Don’t forget to subscribe to our channel and turn on the notification bell!"
-             "\nSee you in the next video.")
     bullets = [f"Fact {i+1}. {f}" for i,f in enumerate(facts)]
+    outro = SUBSCRIBE_LINE
     return "\n".join([intro] + bullets + [outro])
-
-def schedule_slots_us_today(n: int) -> list:
-    now = datetime.now(timezone.utc)
-    date = now.date()
-    # أفضل 3 مواعيد EST للجمهور الأمريكي: 11 AM, 4 PM, 8 PM
-    est_hours = [11, 16, 20]
-    slots=[]
-    for h in est_hours[:n]:
-        hour_utc = (h + 5) % 24
-        dt_utc = datetime(date.year,date.month,date.day,hour_utc,0,tzinfo=timezone.utc)
-        if dt_utc < now + timedelta(minutes=30):
-            dt_utc += timedelta(days=1)
-        slots.append(dt_utc.isoformat())
-    return slots
 
 def main():
     animals = load_animals_pool(POOL_CSV)
     chosen = pick_unique_animals(animals, n=3)
-    slots = schedule_slots_us_today(n=3)
 
     from youtube import upload_video
 
@@ -76,7 +61,7 @@ def main():
         bg = pick_bg_music(ROOT/"assets/music") if USE_BG_MUSIC else None
         voicebed = make_voicebed(voice_paths, bg_music=bg, music_gain_db=-18)
 
-        urls = pick_video_urls(animal, need=10, prefer_vertical=False)
+        urls = pick_video_urls(animal, need=12, prefer_vertical=False)
         paths = download_files(urls, Path(tempfile.mkdtemp()))
         final = compose_video(paths, voicebed, min_duration=185)
 
@@ -84,8 +69,10 @@ def main():
         desc = description_for(animal, facts) + "\n\n" + hashtags_for(animal)
         tags = tags_for(animal)
 
-        upload_video(final, title, desc, tags, privacy="private", schedule_time_rfc3339=slots[idx])
-        time.sleep(10)
+        # ينزل Public فورًا
+        from pathlib import Path as _P
+        upload_video(str(final), title, desc, tags, privacy="public", schedule_time_rfc3339=None)
+        time.sleep(5)
 
 if __name__ == "__main__":
     main()
