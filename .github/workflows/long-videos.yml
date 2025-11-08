@@ -1,9 +1,8 @@
-name: Daily Long Videos (3x)
+name: Daily Long Videos (2x)
 on:
   schedule:
-    - cron: "0 16 * * *"   # 11 AM EST
-    - cron: "0 21 * * *"   # 4 PM EST
-    - cron: "0 1 * * *"    # 8 PM EST (اليوم التالي UTC)
+    - cron: "0 15 * * *"   # 5 PM Egypt / 10 AM New York
+    - cron: "0 22 * * *"   # 12 AM Egypt / 5 PM New York
   workflow_dispatch:
 
 jobs:
@@ -11,20 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Generate & publish 3 long videos (one per run)
+      - name: Generate & publish 2 long videos
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -33,6 +28,6 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          USE_BG_MUSIC: ${{ vars.USE_BG_MUSIC }}
+          USE_BG_MUSIC: "true"
         run: |
           python -u src/main_long.py
