@@ -25,10 +25,12 @@ def one_snack_fact(animal: str) -> str:
 def schedule_6_shorts_today() -> list:
     now = datetime.now(timezone.utc)
     date = now.date()
-    est_hours = [9,11,13,15,17,20]
+    # مواعيد الشورتس (EST): 9AM, 11AM, 1PM, 3PM, 6PM, 9PM
+    est_hours = [9, 11, 13, 15, 18, 21]
     slots=[]
     for h in est_hours:
-        dt_utc = datetime(date.year,date.month,date.day,h+5,0,tzinfo=timezone.utc)
+        hour_utc = (h + 5) % 24
+        dt_utc = datetime(date.year,date.month,date.day,hour_utc,0,tzinfo=timezone.utc)
         if dt_utc < now + timedelta(minutes=20):
             dt_utc += timedelta(days=1)
         slots.append(dt_utc.isoformat())
