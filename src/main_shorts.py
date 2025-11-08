@@ -1,27 +1,13 @@
-import os, tempfile, requests
+import os, tempfile, random
 from pathlib import Path
 from animals import load_animals_pool
 from utils import pick_unique_animals
 from media_sources import pick_video_urls
-from tts import synthesize
-from compose import download_files, compose_short
+from compose import download_files, compose_short, pick_bg_music
 from seo import shorts_title_for, hashtags_for, tags_for
 
 ROOT = Path(__file__).resolve().parents[1]
 POOL_CSV = ROOT / "data" / "animals_pool.csv"
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY","")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL","gpt-4o-mini")
-
-SUBSCRIBE_SHORT = "Subscribe for more animal facts!"
-
-def one_snack_fact(animal: str) -> str:
-    prompt = f"Give ONE surprising, accurate fact about the {animal} in <= 18 words. Plain sentence ending with: {SUBSCRIBE_SHORT}"
-    r = requests.post("https://api.openai.com/v1/chat/completions",
-                      headers={"Authorization": f"Bearer {OPENAI_API_KEY}","Content-Type":"application/json"},
-                      json={"model": OPENAI_MODEL, "messages":[{"role":"user","content":prompt}], "temperature":0.5})
-    r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"].strip().replace("\n"," ")
 
 def main():
     animals = load_animals_pool(POOL_CSV)
@@ -30,17 +16,24 @@ def main():
     from youtube import upload_video
 
     for idx, animal in enumerate(chosen6):
-        fact = one_snack_fact(animal)
-        tts_path = Path(tempfile.mkdtemp())/"short_narration.mp3"
-        synthesize(fact, tts_path, idx=idx)
-
+        print(f"🎥 Creating short for {animal} (music only)")
         urls = pick_video_urls(animal, need=8, prefer_vertical=True)
         paths = download_files(urls, Path(tempfile.mkdtemp()))
-        final = compose_short(paths, tts_path, target_duration=58)
+
+        # موسيقى من المجلد أو fallback
+        music = pick_bg_music(ROOT / "assets/music")
+        if not music:
+            import requests
+            r = requests.get("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
+            tmp = Path(tempfile.mkdtemp()) / "music.mp3"
+            tmp.write_bytes(r.content)
+            music = tmp
+
+        final = compose_short(paths, music, target_duration=58)
 
         title = shorts_title_for(animal)
-        desc = fact + "\n" + hashtags_for(animal, shorts=True)
-        tags = tags_for(animal) + ["shorts", "vertical video"]
+        desc = f"Amazing animal moments about the {animal}! 🎶\n{hashtags_for(animal, shorts=True)}"
+        tags = tags_for(animal) + ["shorts", "music", "animals"]
 
         upload_video(str(final), title, desc, tags, privacy="public", schedule_time_rfc3339=None)
 
