@@ -1,9 +1,9 @@
 name: Daily Long Videos (3x)
 on:
   schedule:
-    - cron: "30 15 * * *"  # 15:30 UTC (قبل النشر الأول)
-    - cron: "30 20 * * *"  # 20:30 UTC (قبل النشر الثاني)
-    - cron: "30 0 * * *"   # 00:30 UTC (قبل النشر الثالث)
+    - cron: "0 16 * * *"   # 11 AM EST
+    - cron: "0 21 * * *"   # 4 PM EST
+    - cron: "0 1 * * *"    # 8 PM EST (اليوم التالي UTC)
   workflow_dispatch:
 
 jobs:
@@ -24,16 +24,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate & schedule 3 long videos
+      - name: Generate & publish 3 long videos (one per run)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
           USE_BG_MUSIC: ${{ vars.USE_BG_MUSIC }}
-          VOICES_ROTATION: ${{ vars.VOICES_ROTATION }}
         run: |
           python -u src/main_long.py
