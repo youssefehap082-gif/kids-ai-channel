@@ -1,4 +1,4 @@
-import os, tempfile, requests
+import os, tempfile, requests, time
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from animals import load_animals_pool
@@ -22,7 +22,7 @@ One sentence per fact (<= 20 words). Neutral educational tone. Numbered list.
 """
     r = requests.post("https://api.openai.com/v1/chat/completions",
                       headers={"Authorization": f"Bearer {OPENAI_API_KEY}","Content-Type":"application/json"},
-                      json={"model": OPENAI_MODEL, "messages":[{"role":"user","content":prompt}], "temperature":0.4})
+                      json={"model": OPENAI_MODEL,"messages":[{"role":"user","content":prompt}],"temperature":0.4})
     r.raise_for_status()
     txt = r.json()["choices"][0]["message"]["content"]
     lines = [l.strip(" -") for l in txt.split("\n") if l.strip()]
@@ -35,18 +35,19 @@ One sentence per fact (<= 20 words). Neutral educational tone. Numbered list.
 
 def narration_script(animal: str, facts: list) -> str:
     intro = f"Here are ten amazing facts about the {animal}."
-    outro = "Subscribe for more animal facts every day."
+    outro = ("Don’t forget to subscribe to our channel and turn on the notification bell!"
+             "\nSee you in the next video.")
     bullets = [f"Fact {i+1}. {f}" for i,f in enumerate(facts)]
     return "\n".join([intro] + bullets + [outro])
 
 def schedule_slots_us_today(n: int) -> list:
     now = datetime.now(timezone.utc)
     date = now.date()
-    # أفضل 3 أوقات للجمهور الأمريكي (EST): 11AM, 4PM, 8PM
+    # أفضل 3 مواعيد EST للجمهور الأمريكي: 11 AM, 4 PM, 8 PM
     est_hours = [11, 16, 20]
     slots=[]
     for h in est_hours[:n]:
-        hour_utc = (h + 5) % 24  # تحويل EST إلى UTC
+        hour_utc = (h + 5) % 24
         dt_utc = datetime(date.year,date.month,date.day,hour_utc,0,tzinfo=timezone.utc)
         if dt_utc < now + timedelta(minutes=30):
             dt_utc += timedelta(days=1)
@@ -61,6 +62,7 @@ def main():
     from youtube import upload_video
 
     for idx, animal in enumerate(chosen):
+        print(f"🎬 Generating video for: {animal}")
         facts = gen_facts(animal)
         script = narration_script(animal, facts)
 
@@ -68,7 +70,7 @@ def main():
         voice_paths=[]
         for i, part in enumerate(parts):
             vp = Path(tempfile.mkdtemp())/f"voice_{i}.mp3"
-            synthesize(part, vp, idx=idx)  # alternates voice each video
+            synthesize(part, vp, idx=idx)
             voice_paths.append(vp)
 
         bg = pick_bg_music(ROOT/"assets/music") if USE_BG_MUSIC else None
@@ -83,6 +85,7 @@ def main():
         tags = tags_for(animal)
 
         upload_video(final, title, desc, tags, privacy="private", schedule_time_rfc3339=slots[idx])
+        time.sleep(10)
 
 if __name__ == "__main__":
     main()
