@@ -42,12 +42,13 @@ def narration_script(animal: str, facts: list) -> str:
 def schedule_slots_us_today(n: int) -> list:
     now = datetime.now(timezone.utc)
     date = now.date()
-    # 11:00, 15:00, 19:00 EST -> UTC+5
-    est_hours = [11,15,19]
+    # أفضل 3 أوقات للجمهور الأمريكي (EST): 11AM, 4PM, 8PM
+    est_hours = [11, 16, 20]
     slots=[]
     for h in est_hours[:n]:
-        dt_utc = datetime(date.year,date.month,date.day,h+5,0,tzinfo=timezone.utc)
-        if dt_utc < now + timedelta(minutes=20):
+        hour_utc = (h + 5) % 24  # تحويل EST إلى UTC
+        dt_utc = datetime(date.year,date.month,date.day,hour_utc,0,tzinfo=timezone.utc)
+        if dt_utc < now + timedelta(minutes=30):
             dt_utc += timedelta(days=1)
         slots.append(dt_utc.isoformat())
     return slots
@@ -67,7 +68,7 @@ def main():
         voice_paths=[]
         for i, part in enumerate(parts):
             vp = Path(tempfile.mkdtemp())/f"voice_{i}.mp3"
-            synthesize(part, vp, idx=idx)  # يبدّل صوت كل فيديو
+            synthesize(part, vp, idx=idx)  # alternates voice each video
             voice_paths.append(vp)
 
         bg = pick_bg_music(ROOT/"assets/music") if USE_BG_MUSIC else None
