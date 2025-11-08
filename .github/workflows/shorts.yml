@@ -1,12 +1,10 @@
-name: Daily Shorts (6x)
+name: Daily Shorts (4x)
 on:
   schedule:
-    - cron: "0 14 * * *"  # 9 AM EST
-    - cron: "0 16 * * *"  # 11 AM EST
-    - cron: "0 18 * * *"  # 1 PM EST
-    - cron: "0 20 * * *"  # 3 PM EST
-    - cron: "0 22 * * *"  # 5 PM EST
-    - cron: "0 0 * * *"   # 7 PM EST (اليوم التالي UTC)
+    - cron: "0 13 * * *"   # 3 PM Egypt / 8 AM New York
+    - cron: "0 16 * * *"   # 6 PM Egypt / 11 AM New York
+    - cron: "0 19 * * *"   # 9 PM Egypt / 2 PM New York
+    - cron: "0 22 * * *"   # 12 AM Egypt / 5 PM New York
   workflow_dispatch:
 
 jobs:
@@ -23,7 +21,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Generate & publish 6 shorts (one per run)
+      - name: Generate & publish 4 shorts
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
