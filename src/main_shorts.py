@@ -1,36 +1,33 @@
-import os, random
-from src.media_sources import get_video_urls
-from src.ai_vision import is_animal_video
-from src.music_picker import pick_music
+import os, random, time
+from src.media_sources import pick_video_urls
 from src.compose import compose_short
 from src.youtube import upload_video
 
 def main():
-    print("🎬 Generating animal shorts with background music only")
+    print("🎞 Generating Animal Shorts...")
 
-    animals = ["Lion", "Tiger", "Elephant", "Panda", "Koala", "Cobra", "Dolphin", "Penguin"]
+    animals = ["Lion", "Elephant", "Panda", "Tiger", "Zebra", "Giraffe", "Kangaroo", "Koala", "Penguin", "Crocodile"]
     random.shuffle(animals)
 
-    for animal in animals[:6]:
-        try:
-            print(f"🎥 Creating short for {animal}")
-            urls = get_video_urls(animal, limit=5)
-            valid_urls = [u for u in urls if is_animal_video(u)]
-            if not valid_urls:
-                continue
+    for idx, animal in enumerate(animals[:6]):
+        print(f"🎬 Creating short for {animal}")
 
-            music = pick_music(animal)
-            final = compose_short(valid_urls, music, target_duration=58)
+        # 1. جلب الفيديوهات (موسيقى فقط)
+        urls = pick_video_urls(animal, need=6, prefer_vertical=True)
 
-            title = f"{animal} — Mind-Blowing Fact! #Shorts"
-            desc = f"Watch this amazing short about the {animal}! 🐾\nSubscribe for more!"
-            tags = [animal, "Animals", "Wildlife", "Nature"]
+        # 2. دمج الفيديوهات + موسيقى خلفية
+        short_video = compose_short(urls, target_duration=58)
 
-            upload_video(final, title, desc, tags, privacy="public")
-        except Exception as e:
-            print(f"⚠️ Failed to create short for {animal}: {e}")
+        # 3. تجهيز العنوان والوصف
+        title = f"The {animal} in Action 🐾 #Shorts"
+        desc = f"Watch this amazing {animal} moment! 🐾\n#Nature #Wildlife #Animals"
+        tags = [animal, "shorts", "wildlife", "nature"]
 
-    print("✅ All shorts generated successfully!")
+        # 4. رفع الفيديو
+        upload_video(short_video, title, desc, tags, privacy="public")
+
+        print(f"✅ Uploaded short for {animal}")
+        time.sleep(10)
 
 if __name__ == "__main__":
     main()
