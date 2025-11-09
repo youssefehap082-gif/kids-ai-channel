@@ -3,59 +3,46 @@ from pathlib import Path
 from typing import List
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, vfx
 from PIL import Image
-from pydub import AudioSegment
 
+# Pillow compat
 if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.Resampling.LANCZOS
 
-def download_files(urls: List[str], workdir: Path) -> List[Path]:
+def _download(url: str, to: Path):
     import requests
-    paths = []
-    for i, u in enumerate(urls):
+    r = requests.get(url, timeout=300)
+    r.raise_for_status()
+    to.write_bytes(r.content)
+
+def _dl_many(urls: List[str]) -> List[Path]:
+    tmp = Path(tempfile.mkdtemp())
+    paths=[]
+    for i,u in enumerate(urls):
         try:
-            r = requests.get(u, timeout=300)
-            r.raise_for_status()
-            p = workdir / f"clip_{i}.mp4"
-            p.write_bytes(r.content)
+            p = tmp/f"clip_{i}.mp4"
+            _download(u,p)
             paths.append(p)
         except Exception as e:
-            print(f"⚠️ Failed to download video: {e}")
+            print(f"⚠️ Download failed: {e}")
     return paths
 
-def pick_bg_music(music_dir: Path) -> Path | None:
-    tracks = list(music_dir.glob("*.mp3"))
-    return random.choice(tracks) if tracks else None
+def compose_video(urls: List[str], narration_mp3: str, min_duration=180) -> str:
+    audio = AudioFileClip(narration_mp3)
+    audio_len = audio.duration
+    target = max(min_duration, int(audio_len))
 
-def make_voicebed(voice_paths: List[Path], bg_music: Path | None = None, music_gain_db=-18) -> Path:
-    narration = AudioSegment.silent(duration=0)
-    for p in voice_paths:
-        narration += AudioSegment.from_file(p)
-    if bg_music:
-        music = AudioSegment.from_file(bg_music) - abs(music_gain_db)
-        looped = (music * (int(len(narration) / len(music)) + 2))[:len(narration)]
-        out = looped.overlay(narration)
-    else:
-        out = narration
-    out_path = Path(tempfile.mkdtemp()) / "voicebed.mp3"
-    out.export(out_path, format="mp3")
-    return out_path
-
-def compose_video(video_paths: List[Path], audio_path: Path, min_duration=185) -> Path:
-    audio_clip = AudioFileClip(str(audio_path))
-    audio_len = audio_clip.duration
-
-    clips = []
-    for p in video_paths:
+    vpaths = _dl_many(urls)
+    clips=[]
+    for p in vpaths:
         try:
             c = VideoFileClip(str(p)).fx(vfx.resize, height=1080)
             clips.append(c)
         except Exception as e:
-            print(f"⚠️ Skipping invalid video: {e}")
+            print(f"⚠️ Bad clip: {e}")
 
     if not clips:
-        raise Exception("❌ No valid videos to compose.")
+        raise RuntimeError("No valid video clips downloaded.")
 
-    target = max(min_duration, int(audio_len))
     seq, cur, i = [], 0, 0
     while cur < target and clips:
         c = clips[i % len(clips)]
@@ -64,49 +51,59 @@ def compose_video(video_paths: List[Path], audio_path: Path, min_duration=185) -
         cur += take
         i += 1
 
-    main = concatenate_videoclips(seq, method="compose").set_audio(audio_clip)
-    final = main.subclip(0, min(audio_len, main.duration))  # <-- بدون أي زيادة
-
-    out_path = Path(tempfile.mkdtemp()) / "final_video.mp4"
-    final.write_videofile(str(out_path), fps=30, codec="libx264", audio_codec="aac", threads=4, bitrate="6000k")
+    main = concatenate_videoclips(seq, method="compose").set_audio(audio)
+    final = main.subclip(0, min(audio_len, main.duration))
+    out = Path(tempfile.mkdtemp())/"long_final.mp4"
+    final.write_videofile(str(out), fps=30, codec="libx264", audio_codec="aac", threads=4, bitrate="6000k")
 
     for c in clips: c.close()
-    audio_clip.close()
-    return out_path
+    audio.close()
+    return str(out)
 
-def compose_short(video_paths: List[Path], music_path: Path, target_duration=58) -> Path:
-    music_clip = AudioFileClip(str(music_path))
-    music_len = music_clip.duration
-    target = min(target_duration, int(music_len))
+def compose_short(urls: List[str], target_duration=58) -> str:
+    # Optional: try to fetch music from Pixabay if available
+    music_path = None
+    try:
+        import requests
+        pix_key = os.getenv("PIXABAY_API_KEY","")
+        if pix_key:
+            r = requests.get(f"https://pixabay.com/api/audio/?key={pix_key}&q=beat", timeout=20)
+            j = r.json()
+            if j.get("hits"):
+                mp3 = j["hits"][0].get("audio")
+                if mp3:
+                    music_path = str(Path(tempfile.mkdtemp())/"short_music.mp3")
+                    m = requests.get(mp3, timeout=60)
+                    Path(music_path).write_bytes(m.content)
+    except Exception as e:
+        print(f"⚠️ Music fetch failed: {e}")
 
-    clips = []
-    for p in video_paths:
+    vpaths = _dl_many(urls)
+    clips=[]
+    for p in vpaths:
         try:
             c = VideoFileClip(str(p)).resize(height=1920)
             if c.w > 1080:
-                x = int((c.w - 1080) / 2)
+                x = int((c.w - 1080)/2)
                 c = c.crop(x1=x, y1=0, x2=x+1080, y2=1920)
             clips.append(c)
         except Exception as e:
-            print(f"⚠️ Skipping invalid short video: {e}")
+            print(f"⚠️ Bad short clip: {e}")
 
     if not clips:
-        raise Exception("❌ No valid videos for short.")
+        raise RuntimeError("No valid short clips downloaded.")
 
     seq, cur = [], 0
     for c in clips:
-        take = min(c.duration, max(2, target - cur))
+        take = min(c.duration, max(2, target_duration - cur))
         seq.append(c.subclip(0, take))
         cur += take
-        if cur >= target:
-            break
+        if cur >= target_duration: break
 
-    main = concatenate_videoclips(seq, method="compose").set_audio(music_clip)
-    final = main.subclip(0, min(music_len, main.duration))
-
-    out_path = Path(tempfile.mkdtemp()) / "short.mp4"
-    final.write_videofile(str(out_path), fps=30, codec="libx264", audio_codec="aac", threads=4, bitrate="4000k")
-
+    main = concatenate_videoclips(seq, method="compose")
+    if music_path:
+        main = main.set_audio(AudioFileClip(music_path))
+    out = Path(tempfile.mkdtemp())/"short_final.mp4"
+    main.subclip(0, min(target_duration, main.duration)).write_videofile(str(out), fps=30, codec="libx264", audio_codec="aac", threads=4, bitrate="4000k")
     for c in clips: c.close()
-    music_clip.close()
-    return out_path
+    return str(out)
