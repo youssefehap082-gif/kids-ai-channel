@@ -1,41 +1,36 @@
-import os, tempfile, random
-from pathlib import Path
-from animals import load_animals_pool
-from utils import pick_unique_animals
-from media_sources import pick_video_urls
-from compose import download_files, compose_short, pick_bg_music
-from seo import shorts_title_for, hashtags_for, tags_for
-
-ROOT = Path(__file__).resolve().parents[1]
-POOL_CSV = ROOT / "data" / "animals_pool.csv"
+import os, random
+from src.media_sources import get_video_urls
+from src.ai_vision import is_animal_video
+from src.music_picker import pick_music
+from src.compose import compose_short
+from src.youtube import upload_video
 
 def main():
-    animals = load_animals_pool(POOL_CSV)
-    chosen6 = pick_unique_animals(animals, n=6)
+    print("🎬 Generating animal shorts with background music only")
 
-    from youtube import upload_video
+    animals = ["Lion", "Tiger", "Elephant", "Panda", "Koala", "Cobra", "Dolphin", "Penguin"]
+    random.shuffle(animals)
 
-    for idx, animal in enumerate(chosen6):
-        print(f"🎥 Creating short for {animal} (music only)")
-        urls = pick_video_urls(animal, need=8, prefer_vertical=True)
-        paths = download_files(urls, Path(tempfile.mkdtemp()))
+    for animal in animals[:6]:
+        try:
+            print(f"🎥 Creating short for {animal}")
+            urls = get_video_urls(animal, limit=5)
+            valid_urls = [u for u in urls if is_animal_video(u)]
+            if not valid_urls:
+                continue
 
-        # موسيقى من المجلد أو fallback
-        music = pick_bg_music(ROOT / "assets/music")
-        if not music:
-            import requests
-            r = requests.get("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
-            tmp = Path(tempfile.mkdtemp()) / "music.mp3"
-            tmp.write_bytes(r.content)
-            music = tmp
+            music = pick_music(animal)
+            final = compose_short(valid_urls, music, target_duration=58)
 
-        final = compose_short(paths, music, target_duration=58)
+            title = f"{animal} — Mind-Blowing Fact! #Shorts"
+            desc = f"Watch this amazing short about the {animal}! 🐾\nSubscribe for more!"
+            tags = [animal, "Animals", "Wildlife", "Nature"]
 
-        title = shorts_title_for(animal)
-        desc = f"Amazing animal moments about the {animal}! 🎶\n{hashtags_for(animal, shorts=True)}"
-        tags = tags_for(animal) + ["shorts", "music", "animals"]
+            upload_video(final, title, desc, tags, privacy="public")
+        except Exception as e:
+            print(f"⚠️ Failed to create short for {animal}: {e}")
 
-        upload_video(str(final), title, desc, tags, privacy="public", schedule_time_rfc3339=None)
+    print("✅ All shorts generated successfully!")
 
 if __name__ == "__main__":
     main()
