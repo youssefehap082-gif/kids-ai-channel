@@ -2,32 +2,32 @@ import os, random, time
 from src.media_sources import pick_video_urls
 from src.compose import compose_short
 from src.youtube import upload_video
+from src.utils import generate_thumbnail_ai, generate_hashtags
 
 def main():
-    print("🎞 Generating Animal Shorts...")
+    print("🎞 Generating AI Animal Shorts...")
 
-    animals = ["Lion", "Elephant", "Panda", "Tiger", "Zebra", "Giraffe", "Kangaroo", "Koala", "Penguin", "Crocodile"]
+    animals = ["Lion", "Panda", "Koala", "Eagle", "Crocodile", "Elephant", "Shark", "Tiger", "Owl", "Cheetah"]
     random.shuffle(animals)
 
     for idx, animal in enumerate(animals[:6]):
-        print(f"🎬 Creating short for {animal}")
+        try:
+            print(f"🐾 Creating short for {animal}")
+            urls = pick_video_urls(animal, need=6, prefer_vertical=True)
+            short_path = compose_short(urls, target_duration=58)
 
-        # 1. جلب الفيديوهات (موسيقى فقط)
-        urls = pick_video_urls(animal, need=6, prefer_vertical=True)
+            thumb = generate_thumbnail_ai(animal)
+            hashtags = generate_hashtags(animal)
+            title = f"The {animal} in Action 🐾 #Shorts"
+            desc = f"Watch the {animal} in its natural beauty! 🐾\n{hashtags}"
 
-        # 2. دمج الفيديوهات + موسيقى خلفية
-        short_video = compose_short(urls, target_duration=58)
+            upload_video(short_path, title, desc, [animal, "shorts", "wildlife"], thumb_path=thumb, privacy="public")
+            print(f"✅ Uploaded short for {animal}")
+            time.sleep(10)
+        except Exception as e:
+            print(f"⚠️ Error with {animal}: {e}")
 
-        # 3. تجهيز العنوان والوصف
-        title = f"The {animal} in Action 🐾 #Shorts"
-        desc = f"Watch this amazing {animal} moment! 🐾\n#Nature #Wildlife #Animals"
-        tags = [animal, "shorts", "wildlife", "nature"]
-
-        # 4. رفع الفيديو
-        upload_video(short_video, title, desc, tags, privacy="public")
-
-        print(f"✅ Uploaded short for {animal}")
-        time.sleep(10)
+    print("🎯 All shorts uploaded successfully!")
 
 if __name__ == "__main__":
     main()
