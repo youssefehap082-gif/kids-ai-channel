@@ -1,55 +1,76 @@
-import os, random, time, textwrap
-from datetime import datetime, timedelta
+import os, random, time, csv
+from datetime import datetime
 from src.media_sources import pick_video_urls
 from src.tts import generate_tts
 from src.compose import compose_video
-from src.youtube import upload_video
+from src.youtube import upload_video, get_video_stats
 from src.subtitles import add_subtitles
-from src.utils import get_animal_facts
-from moviepy.editor import VideoFileClip, CompositeVideoClip, ImageClip
+from src.utils import get_animal_facts, get_trending_animals, generate_hashtags, generate_thumbnail_ai
+from moviepy.editor import VideoFileClip, CompositeVideoClip, ImageClip, concatenate_videoclips
 
 def main():
-    print("🎬 Generating Long Animal Fact Videos...")
+    print("🐾 Starting WildFacts AI System...")
 
-    animals = ["Lion", "Tiger", "Elephant", "Panda", "Kangaroo", "Giraffe", "Koala", "Dolphin", "Cheetah", "Penguin"]
+    # ✅ جلب الحيوانات الأكثر بحثًا الأسبوع الحالي
+    animals = get_trending_animals()
+    if not animals:
+        animals = ["Lion", "Elephant", "Tiger", "Panda", "Cheetah", "Shark", "Koala"]
+
     random.shuffle(animals)
 
     for idx, animal in enumerate(animals[:3]):
-        print(f"🐾 Generating video for: {animal}")
+        try:
+            print(f"🎬 Generating video for: {animal}")
 
-        # 1. جلب الحقائق
-        facts = get_animal_facts(animal)
-        script_text = " ".join(facts)
+            # 1️⃣ جلب حقائق الحيوان
+            facts = get_animal_facts(animal)
+            script_text = " ".join(facts)
 
-        # 2. توليد التعليق الصوتي (من ElevenLabs)
-        tts_path = generate_tts(script_text, voice=random.choice(["Rachel", "Adam", "Domi"]))
+            # 2️⃣ توليد التعليق الصوتي + صوت ختام
+            voice_file = generate_tts(script_text, voice="Rachel")
+            outro_voice = generate_tts("Subscribe for more amazing animal facts!", voice="Rachel")
 
-        # 3. جلب الفيديوهات المناسبة للحيوان
-        urls = pick_video_urls(animal, need=10, prefer_vertical=False)
+            # 3️⃣ جلب الفيديوهات
+            urls = pick_video_urls(animal, need=10, prefer_vertical=False)
+            main_video = compose_video(urls, voice_file, min_duration=180)
 
-        # 4. دمج الصوت مع الفيديوهات
-        base_video = compose_video(urls, tts_path, min_duration=185)
+            # 4️⃣ إضافة الترجمة النصية المتزامنة
+            subtitled_video = add_subtitles(main_video, script_text)
 
-        # 5. إضافة الترجمة النصية المتزامنة
-        subtitled_video = add_subtitles(base_video, script_text)
+            # 5️⃣ إضافة Outro بلوجو القناة + الصوت الختامي
+            logo_path = "assets/logo.png"
+            outro_img = ImageClip(logo_path).set_duration(4).resize(height=250).set_position(("center", "center"))
+            outro_clip = CompositeVideoClip([outro_img.fadein(1).fadeout(1)])
+            outro_clip.audio = VideoFileClip(outro_voice).audio
+            base_clip = VideoFileClip(subtitled_video)
+            final_clip = concatenate_videoclips([base_clip, outro_clip])
+            final_path = f"/tmp/{animal.lower()}_final.mp4"
+            final_clip.write_videofile(final_path, codec="libx264", audio_codec="aac")
 
-        # 6. إضافة اللوجو في النهاية كـ outro
-        logo_path = "assets/logo.png"
-        outro = ImageClip(logo_path).set_duration(4).resize(height=200).set_position(("center", "center"))
-        final_clip = CompositeVideoClip([VideoFileClip(subtitled_video), outro.set_start(VideoFileClip(subtitled_video).duration - 4)])
-        final_path = f"/tmp/{animal.lower()}_final.mp4"
-        final_clip.write_videofile(final_path, codec="libx264", audio_codec="aac")
+            # 6️⃣ توليد كفر AI
+            thumb_path = generate_thumbnail_ai(animal)
 
-        # 7. تجهيز البيانات للنشر
-        title = f"10 Amazing Facts About the {animal} You Didn't Know!"
-        desc = f"Discover 10 fascinating facts about the {animal}! 🐾\nSubscribe for more animal wonders!\n#Wildlife #Nature #Animals"
-        tags = [animal, "animals", "wildlife", "facts"]
+            # 7️⃣ توليد الهاشتاجات
+            hashtags = generate_hashtags(animal)
+            desc = f"Discover 10 fascinating facts about the {animal}! 🐾\n\n{hashtags}\nSubscribe for more!"
 
-        # 8. رفع الفيديو
-        upload_video(final_path, title, desc, tags, privacy="public")
+            # 8️⃣ رفع الفيديو
+            title = f"10 Amazing Facts About the {animal} You Didn't Know!"
+            tags = [animal, "Wildlife", "Animals", "Nature"]
+            video_id = upload_video(final_path, title, desc, tags, thumb_path=thumb_path, privacy="public")
+            print(f"✅ Uploaded {animal}: https://youtu.be/{video_id}")
 
-        print(f"✅ Done uploading video about {animal}")
-        time.sleep(10)  # delay بسيط بين كل فيديو
+            # 9️⃣ تسجيل الإحصائيات
+            views = get_video_stats(video_id)
+            with open("stats.csv", "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), animal, views])
+
+            time.sleep(15)
+        except Exception as e:
+            print(f"⚠️ Error with {animal}: {e}")
+
+    print("🎯 All 3 long videos uploaded successfully!")
 
 if __name__ == "__main__":
     main()
