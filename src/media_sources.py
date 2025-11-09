@@ -1,75 +1,114 @@
-import os, requests, random, re
-from typing import List, Dict
-from tenacity import retry, wait_exponential, stop_after_attempt
+import os
+import requests
+from random import shuffle
 
-PEXELS = "https://api.pexels.com/videos/search"
-PIXABAY = "https://pixabay.com/api/videos/"
+# Primary APIs
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
 
-PEXELS_KEY = os.getenv("PEXELS_API_KEY", "")
-PIXABAY_KEY = os.getenv("PIXABAY_API_KEY", "")
+# Backup / Additional APIs
+COVERR_API_KEY = os.getenv("COVERR_API_KEY")
+STORYBLOCKS_API_KEY = os.getenv("STORYBLOCKS_API_KEY")
+VECTEEZY_API_KEY = os.getenv("VECTEEZY_API_KEY")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+BIK_API_KEY = os.getenv("BIK_API_KEY")
 
-HEADERS = {"Authorization": PEXELS_KEY}
+def get_video_urls(query, prefer_vertical=True, limit=10):
+    """
+    Unified function to fetch high-quality, copyright-free animal videos
+    from multiple APIs with fallback if one fails or has no results.
+    """
 
-def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9 ]+", "", s.lower()).strip()
-
-def _matches(animal: str, *fields: str) -> bool:
-    a = _norm(animal)
-    return any(a in _norm(x) for x in fields if x)
-
-def build_queries(animal: str) -> List[str]:
-    # ابحث بالاسم مباشرة + صيغة جمع/مفرد
-    return [animal, f"{animal} animal", f"{animal} wildlife"]
-
-@retry(wait=wait_exponential(min=1, max=6), stop=stop_after_attempt(2))
-def pexels_search(q: str, per_page=12) -> List[Dict]:
-    if not PEXELS_KEY: return []
-    r = requests.get(PEXELS, headers=HEADERS, params={"query": q, "per_page": per_page})
-    r.raise_for_status()
-    return r.json().get("videos", [])
-
-@retry(wait=wait_exponential(min=1, max=6), stop=stop_after_attempt(2))
-def pixabay_search(q: str, per_page=12) -> List[Dict]:
-    if not PIXABAY_KEY: return []
-    r = requests.get(PIXABAY, params={"key": PIXABAY_KEY, "q": q, "video_type": "all", "per_page": per_page})
-    r.raise_for_status()
-    return r.json().get("hits", [])
-
-def pick_video_urls(animal: str, need=8, prefer_vertical=False) -> List[str]:
+    query = query.replace(" ", "+")
     urls = []
-    target_ratio = (9/16) if prefer_vertical else (16/9)
 
-    for q in build_queries(animal):
-        # PEXELS
-        for v in pexels_search(q):
-            files = v.get("video_files", [])
-            url = None
-            if files:
-                files = sorted(files, key=lambda x: abs((x["height"]/max(1, x["width"])) - target_ratio))
-                # فلترة بالـurl/الـuser/الـid (أفضل المتاح)
-                candidate = files[0]["link"]
-                if _matches(animal, candidate, q):
-                    url = candidate
-            if url: urls.append(url)
+    # 1️⃣ PEXELS
+    if PEXELS_API_KEY:
+        try:
+            r = requests.get(
+                f"https://api.pexels.com/videos/search?query={query}&per_page={limit}",
+                headers={"Authorization": PEXELS_API_KEY},
+                timeout=20
+            )
+            if r.ok:
+                urls += [v["video_files"][0]["link"] for v in r.json()["videos"] if v["video_files"]]
+        except Exception:
+            pass
 
-        # PIXABAY (الأفضل من حيث tags)
-        for h in pixabay_search(q):
-            tags = h.get("tags", "")
-            videos = h.get("videos", {})
-            chosen = None
-            for k in ["large", "medium", "small"]:
-                if k in videos:
-                    chosen = videos[k]["url"]
-                    break
-            if chosen and _matches(animal, tags, chosen, q):
-                urls.append(chosen)
+    # 2️⃣ PIXABAY
+    if PIXABAY_API_KEY and len(urls) < limit:
+        try:
+            r = requests.get(
+                f"https://pixabay.com/api/videos/?key={PIXABAY_API_KEY}&q={query}&per_page={limit}",
+                timeout=20
+            )
+            if r.ok:
+                urls += [v["videos"]["medium"]["url"] for v in r.json()["hits"]]
+        except Exception:
+            pass
 
-        if len(urls) >= need:
-            break
+    # 3️⃣ COVERr
+    if COVERR_API_KEY and len(urls) < limit:
+        try:
+            r = requests.get(f"https://api.coverr.co/videos?query={query}&limit={limit}",
+                             headers={"Authorization": COVERR_API_KEY}, timeout=20)
+            if r.ok:
+                data = r.json()
+                urls += [v["urls"]["mp4"] for v in data["videos"] if "urls" in v]
+        except Exception:
+            pass
 
-    random.shuffle(urls)
-    # لو النتائج قليلة جدًا، خُد أي حاجة كملء فراغ بدل ما يفشل
-    if len(urls) < max(3, need//2):
-        fallback = [u for u in urls]
-        urls = (urls + fallback)[:need]
-    return urls[:need]
+    # 4️⃣ STORYBLOCKS
+    if STORYBLOCKS_API_KEY and len(urls) < limit:
+        try:
+            r = requests.get(
+                f"https://api.storyblocks.com/api/v2/videos/search?query={query}&results={limit}",
+                headers={"Authorization": f"Bearer {STORYBLOCKS_API_KEY}"},
+                timeout=20
+            )
+            if r.ok:
+                urls += [v["preview_url"] for v in r.json().get("results", []) if "preview_url" in v]
+        except Exception:
+            pass
+
+    # 5️⃣ VECTEEZY
+    if VECTEEZY_API_KEY and len(urls) < limit:
+        try:
+            r = requests.get(
+                f"https://api.vecteezy.com/videos?query={query}&limit={limit}",
+                headers={"Authorization": f"Bearer {VECTEEZY_API_KEY}"},
+                timeout=20
+            )
+            if r.ok:
+                urls += [v["video_url"] for v in r.json().get("data", []) if "video_url" in v]
+        except Exception:
+            pass
+
+    # 6️⃣ CLOUDINARY
+    if CLOUDINARY_API_KEY and len(urls) < limit:
+        try:
+            r = requests.get(
+                f"https://api.cloudinary.com/v1_1/demo/resources/search?expression={query}",
+                auth=(CLOUDINARY_API_KEY, ""),
+                timeout=20
+            )
+            if r.ok:
+                urls += [v["secure_url"] for v in r.json().get("resources", []) if v["format"] == "mp4"]
+        except Exception:
+            pass
+
+    # 7️⃣ BIK
+    if BIK_API_KEY and len(urls) < limit:
+        try:
+            r = requests.get(
+                f"https://api.bik.io/videos/search?query={query}&limit={limit}",
+                headers={"x-api-key": BIK_API_KEY},
+                timeout=20
+            )
+            if r.ok:
+                urls += [v["url"] for v in r.json().get("results", [])]
+        except Exception:
+            pass
+
+    shuffle(urls)
+    return urls[:limit]
