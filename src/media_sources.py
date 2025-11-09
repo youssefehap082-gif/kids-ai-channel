@@ -1,26 +1,52 @@
 import os
+import re
 import requests
 from random import shuffle
 
-# Primary APIs
+# ----------------------------
+#  API KEYS
+# ----------------------------
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
-
-# Backup / Additional APIs
 COVERR_API_KEY = os.getenv("COVERR_API_KEY")
 STORYBLOCKS_API_KEY = os.getenv("STORYBLOCKS_API_KEY")
 VECTEEZY_API_KEY = os.getenv("VECTEEZY_API_KEY")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 BIK_API_KEY = os.getenv("BIK_API_KEY")
 
-def get_video_urls(query, prefer_vertical=True, limit=10):
+# ----------------------------
+#  🧠 Helper: Extract Animal Name from Title
+# ----------------------------
+def extract_animal_from_title(title: str):
     """
-    Unified function to fetch high-quality, copyright-free animal videos
-    from multiple APIs with fallback if one fails or has no results.
+    Automatically extracts the animal/creature name from a YouTube title.
+    Example:
+        Input: "10 Amazing Facts About the Green Sea Turtle You Didn’t Know!"
+        Output: "Green Sea Turtle"
     """
+    match = re.search(r"about the (.*?)($| you|!|\.)", title.lower())
+    if match:
+        animal = match.group(1).strip().title()
+    else:
+        # fallback: just take the last 2 words if no "about the"
+        words = title.split()
+        animal = " ".join(words[-2:]).title()
+    return animal
 
-    query = query.replace(" ", "+")
+
+# ----------------------------
+#  Unified Video Fetcher
+# ----------------------------
+def get_video_urls(title_or_query, prefer_vertical=True, limit=10):
+    """
+    Fetches animal videos from multiple APIs based on the title or query.
+    Ensures highest relevance by extracting animal name and searching across:
+    Pexels, Pixabay, Coverr, Storyblocks, Vecteezy, Cloudinary, Bik.
+    """
+    query = extract_animal_from_title(title_or_query).replace(" ", "+")
     urls = []
+
+    print(f"🎯 Searching for videos about: {query.replace('+', ' ')}")
 
     # 1️⃣ PEXELS
     if PEXELS_API_KEY:
@@ -31,7 +57,7 @@ def get_video_urls(query, prefer_vertical=True, limit=10):
                 timeout=20
             )
             if r.ok:
-                urls += [v["video_files"][0]["link"] for v in r.json()["videos"] if v["video_files"]]
+                urls += [v["video_files"][0]["link"] for v in r.json()["videos"] if v.get("video_files")]
         except Exception:
             pass
 
@@ -50,11 +76,14 @@ def get_video_urls(query, prefer_vertical=True, limit=10):
     # 3️⃣ COVERr
     if COVERR_API_KEY and len(urls) < limit:
         try:
-            r = requests.get(f"https://api.coverr.co/videos?query={query}&limit={limit}",
-                             headers={"Authorization": COVERR_API_KEY}, timeout=20)
+            r = requests.get(
+                f"https://api.coverr.co/videos?query={query}&limit={limit}",
+                headers={"Authorization": COVERR_API_KEY},
+                timeout=20
+            )
             if r.ok:
                 data = r.json()
-                urls += [v["urls"]["mp4"] for v in data["videos"] if "urls" in v]
+                urls += [v["urls"]["mp4"] for v in data.get("videos", []) if "urls" in v]
         except Exception:
             pass
 
@@ -111,4 +140,5 @@ def get_video_urls(query, prefer_vertical=True, limit=10):
             pass
 
     shuffle(urls)
+    print(f"✅ Found {len(urls)} video(s) for {query.replace('+', ' ')}")
     return urls[:limit]
