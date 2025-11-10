@@ -7,48 +7,52 @@ from src.tts import synthesize
 from src.youtube import upload_video
 from src.text_overlay import generate_subtitles, add_text_overlay, translate_text
 from src.utils import get_animal_facts
+from src.optimizer_ai import recommend_next_animals, record_video_result
 from moviepy.editor import VideoFileClip
-
-ANIMALS = ["lion", "elephant", "tiger", "giraffe", "panda", "dolphin", "zebra", "owl", "fox", "bear", "kangaroo", "eagle", "penguin", "wolf"]
 
 def main():
     try:
-        animal = random.choice(ANIMALS)
-        print(f"🎬 Generating video for: {animal}")
+        # 🧠 احصل على الحيوانات الموصى بها من الذكاء الاصطناعي
+        long_animals, _ = recommend_next_animals(n_long=4, n_short=8)
+        print(f"🤖 AI suggested animals for today: {long_animals}")
 
-        # ✅ اجلب الفيديوهات
-        urls = pick_video_urls(animal, need=10, prefer_vertical=False)
-        facts = get_animal_facts(animal)
+        # 🔁 إنتاج 4 فيديوهات طويلة في اليوم
+        for animal in long_animals:
+            print(f"🎬 Generating video for: {animal}")
 
-        # ✅ صوت + ترجمة
-        voice_path = synthesize(facts, voice_type=random.choice(["male", "female"]))
-        subtitle_path = generate_subtitles(facts)
+            # ✅ جمع الفيديوهات والصوت والمعلومات
+            urls = pick_video_urls(animal, need=10, prefer_vertical=False)
+            facts = get_animal_facts(animal)
+            voice_path = synthesize(facts, voice_type=random.choice(["male", "female"]))
+            subtitle_path = generate_subtitles(facts)
 
-        # ✅ الفيديو الأساسي
-        final_path = compose_video(urls, voice_path, subtitle_path, min_duration=200)
-        video = VideoFileClip(final_path)
+            # ✅ إنشاء الفيديو
+            final_path = compose_video(urls, voice_path, subtitle_path, min_duration=200)
+            video = VideoFileClip(final_path)
 
-        # ✅ أضف النص على الشاشة
-        video_with_text = add_text_overlay(video, facts)
-        video_with_text.write_videofile("/tmp/final_overlay.mp4", codec="libx264", audio_codec="aac")
+            # ✅ النصوص على الشاشة + الترجمة بلغات تانية
+            video_with_text = add_text_overlay(video, facts)
+            overlay_path = f"/tmp/{animal}_overlay.mp4"
+            video_with_text.write_videofile(overlay_path, codec="libx264", audio_codec="aac")
 
-        # ✅ ترجمات بلغات أخرى
-        translations = translate_text(facts)
-        for lang, translated in translations.items():
-            srt_path = generate_subtitles(translated, lang)
-            print(f"🌍 Added subtitles for {lang}")
+            translations = translate_text(facts)
+            for lang, translated in translations.items():
+                generate_subtitles(translated, lang)
+                print(f"🌍 Added subtitles for {lang}")
 
-        # ✅ إعداد SEO وعنوان ووصف
-        title = f"10 Amazing Facts About the {animal.title()} You Didn’t Know!"
-        desc = f"Discover incredible facts about the {animal.title()} and other wildlife.\n#Wildlife #Nature #Animals #Facts"
-        tags = [animal, "wildlife", "nature", "animals", "facts"]
+            # ✅ العنوان والوصف
+            title = f"10 Amazing Facts About the {animal.title()} You Didn’t Know!"
+            desc = f"Discover fascinating facts about the {animal.title()} and other wildlife.\n#Wildlife #Nature #Animals #Facts"
+            tags = [animal, "wildlife", "nature", "animals", "facts"]
 
-        # ✅ رفع الفيديو
-        upload_video("/tmp/final_overlay.mp4", title, desc, tags, privacy="public", schedule_time_rfc3339=None)
-        print("✅ Video uploaded successfully!")
+            # ✅ الرفع
+            vid = upload_video(overlay_path, title, desc, tags, privacy="public", schedule_time_rfc3339=None)
+            record_video_result(vid, title, is_short=False)
+
+            print(f"✅ Uploaded long video for {animal}")
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error in long videos: {e}")
 
 if __name__ == "__main__":
     main()
