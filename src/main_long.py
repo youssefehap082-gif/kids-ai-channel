@@ -1,58 +1,53 @@
-import sys, os, random, datetime
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import os
+import random
+import datetime
+import json
+from youtube import upload_video
+from compose import compose_video
+from media_sources import pick_video_urls
+from tts import synthesize
 
-from src.media_sources import pick_video_urls
-from src.compose import compose_video
-from src.tts import synthesize
-from src.youtube import upload_video
-from src.text_overlay import generate_subtitles, add_text_overlay, translate_text
-from src.utils import get_animal_facts
-from src.optimizer_ai import recommend_next_animals, record_video_result
-from moviepy.editor import VideoFileClip
-
+# ✅ تشغيل فيديو واحد مباشر والباقي متأخر حسب الجدول
 def main():
-    try:
-        # 🧠 احصل على الحيوانات الموصى بها من الذكاء الاصطناعي
-        long_animals, _ = recommend_next_animals(n_long=4, n_short=8)
-        print(f"🤖 AI suggested animals for today: {long_animals}")
+    print("🎬 Starting long video automation...")
+    os.makedirs("output", exist_ok=True)
 
-        # 🔁 إنتاج 4 فيديوهات طويلة في اليوم
-        for animal in long_animals:
-            print(f"🎬 Generating video for: {animal}")
+    # اختيار الحيوانات التريند
+    animals = []
+    if os.path.exists("data/trending_animals.json"):
+        with open("data/trending_animals.json", "r", encoding="utf-8") as f:
+            animals = json.load(f)
+    if not animals:
+        animals = ["Lion", "Elephant", "Tiger", "Panda", "Cheetah", "Shark"]
 
-            # ✅ جمع الفيديوهات والصوت والمعلومات
-            urls = pick_video_urls(animal, need=10, prefer_vertical=False)
-            facts = get_animal_facts(animal)
-            voice_path = synthesize(facts, voice_type=random.choice(["male", "female"]))
-            subtitle_path = generate_subtitles(facts)
+    # ✅ اختار أول حيوان للفيديو الفوري
+    animal = random.choice(animals)
+    print(f"🐾 Selected animal: {animal}")
 
-            # ✅ إنشاء الفيديو
-            final_path = compose_video(urls, voice_path, subtitle_path, min_duration=200)
-            video = VideoFileClip(final_path)
+    # توليد الفيديو
+    video_paths = pick_video_urls(animal)
+    voice_path = synthesize(animal, "facts about the " + animal)
+    final = compose_video(video_paths, voice_path)
 
-            # ✅ النصوص على الشاشة + الترجمة بلغات تانية
-            video_with_text = add_text_overlay(video, facts)
-            overlay_path = f"/tmp/{animal}_overlay.mp4"
-            video_with_text.write_videofile(overlay_path, codec="libx264", audio_codec="aac")
+    # رفع أول فيديو فوراً
+    title = f"{animal} — Mind-Blowing Facts! 🐾"
+    desc = f"Discover amazing facts about the {animal}. Subscribe for more daily wild content! 🌍"
+    tags = ["wildlife", "animals", "nature", animal.lower()]
 
-            translations = translate_text(facts)
-            for lang, translated in translations.items():
-                generate_subtitles(translated, lang)
-                print(f"🌍 Added subtitles for {lang}")
+    print("🚀 Uploading first long video now...")
+    upload_video(str(final), title, desc, tags, privacy="public")
 
-            # ✅ العنوان والوصف
-            title = f"10 Amazing Facts About the {animal.title()} You Didn’t Know!"
-            desc = f"Discover fascinating facts about the {animal.title()} and other wildlife.\n#Wildlife #Nature #Animals #Facts"
-            tags = [animal, "wildlife", "nature", "animals", "facts"]
-
-            # ✅ الرفع
-            vid = upload_video(overlay_path, title, desc, tags, privacy="public", schedule_time_rfc3339=None)
-            record_video_result(vid, title, is_short=False)
-
-            print(f"✅ Uploaded long video for {animal}")
-
-    except Exception as e:
-        print(f"❌ Error in long videos: {e}")
+    # ✅ تحديد باقي الفيديوهات للأوقات المثالية
+    times = ["11:00", "15:00", "20:00"]  # بتوقيت GMT
+    now = datetime.datetime.utcnow()
+    for t in times:
+        hour, minute = map(int, t.split(":"))
+        schedule_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if schedule_time < now:
+            schedule_time += datetime.timedelta(days=1)
+        schedule_time_iso = schedule_time.isoformat() + "Z"
+        print(f"🕒 Scheduling next long video for {schedule_time_iso}")
+        upload_video(str(final), title, desc, tags, privacy="private", schedule_time_rfc3339=schedule_time_iso)
 
 if __name__ == "__main__":
     main()
