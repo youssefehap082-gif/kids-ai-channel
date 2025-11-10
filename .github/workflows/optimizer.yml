@@ -1,0 +1,66 @@
+name: AI Optimizer & Daily Auto Upload
+
+on:
+  schedule:
+    # يشتغل كل يوم الساعة 8 صباحًا بتوقيت نيويورك (≈ 3 العصر بتوقيت القاهرة)
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up job
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 moviepy requests
+
+      - name: Run AI Optimizer (Analyze + Plan)
+        run: |
+          python -u src/optimizer_ai.py
+
+      - name: Generate & Upload Long Videos (2x)
+        run: |
+          echo "🎬 Generating and uploading 2 long videos..."
+          python -u src/main_long.py
+          python -u src/main_long.py
+
+      - name: Generate & Upload Shorts (6x)
+        run: |
+          echo "🎬 Generating and uploading 6 short videos..."
+          python -u src/main_shorts.py
+          python -u src/main_shorts.py
+          python -u src/main_shorts.py
+          python -u src/main_shorts.py
+          python -u src/main_shorts.py
+          python -u src/main_shorts.py
+
+      - name: Prevent duplicates (weekly list)
+        run: |
+          echo "🔒 Updating weekly animal list..."
+          python -u src/utils.py update_animals_cache
+
+      - name: SEO + Analytics Improvement
+        run: |
+          echo "📊 Running SEO optimizer..."
+          python -u src/seo.py
+
+      - name: Generate multilingual subtitles
+        run: |
+          echo "🌍 Generating subtitles (English + Spanish + Arabic)..."
+          python -u src/subtitles.py
+
+      - name: Upload performance summary to logs
+        run: |
+          echo "✅ All done! Videos and shorts uploaded successfully."
