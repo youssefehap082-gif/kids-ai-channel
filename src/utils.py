@@ -1,125 +1,130 @@
-import os, re, json, random, requests
-from datetime import datetime, timedelta
+import os
+import re
+import tempfile
+import json
+import requests
+import random
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
-OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations"
 
-HEADERS = {
-    "Authorization": f"Bearer {OPENAI_API_KEY}",
-    "Content-Type": "application/json"
-}
-
-# -------- Trending animals (weekly) --------
-def get_trending_animals():
+def get_trending_animals(limit=5):
     """
-    Returns a weekly-rotating list of popular animals.
-    If OpenAI is available, generate fresh list; otherwise fallback to static pool.
+    دالة ترجع قائمة بحيوانات ترند بناءً على مصادر مختلفة (API أو قائمة جاهزة).
     """
-    pool = [
-        "Lion","Elephant","Tiger","Giant Panda","Cheetah","Shark","Eagle","Owl",
-        "Dolphin","Penguin","Giraffe","Koala","Crocodile","Komodo Dragon","King Cobra",
-        "Snow Leopard","Humpback Whale","Sea Turtle","Octopus","Wolf","Fox","Bear","Hippo","Rhino"
-    ]
+    print("🌍 Fetching trending animals...")
     try:
-        prompt = (
-            "List 30 animal species that are currently popular in English YouTube searches. "
-            "Return a plain comma-separated list without numbering."
-        )
-        r = requests.post(OPENAI_CHAT_URL, headers=HEADERS, json={
-            "model":"gpt-4o-mini",
-            "messages":[{"role":"user","content":prompt}],
-            "temperature":0.6
-        }, timeout=60)
-        r.raise_for_status()
-        txt = r.json()["choices"][0]["message"]["content"]
-        items = [x.strip() for x in re.split(r"[,\n]+", txt) if x.strip()]
-        items = [re.sub(r"[^A-Za-z \-]", "", x).strip() for x in items]
-        items = [x for x in items if x]
-        random.shuffle(items)
-        return items[:30] if items else random.sample(pool, k=15)
-    except Exception:
-        random.shuffle(pool)
-        return pool[:15]
+        # ممكن تستخدم API حقيقية هنا لو عندك مفتاح من موقع بيقدم ترندات الحيوانات
+        trending = [
+            "lion", "tiger", "panda", "wolf", "shark", "elephant",
+            "eagle", "cheetah", "zebra", "fox", "bear", "monkey",
+            "crocodile", "giraffe", "leopard", "rhino", "dolphin",
+            "octopus", "gorilla", "whale"
+        ]
+        random.shuffle(trending)
+        return trending[:limit]
+    except Exception as e:
+        print("⚠️ Error fetching trending animals:", e)
+        # fallback list
+        return ["lion", "tiger", "bear", "eagle", "shark"][:limit]
 
-# -------- Facts (10 bullets) --------
-def get_animal_facts(animal: str):
-    prompt = (
-        f"Give exactly 10 short, accurate, engaging facts about the {animal}. "
-        "One sentence per fact, <=20 words, neutral educational tone, no numbering."
-    )
-    r = requests.post(OPENAI_CHAT_URL, headers=HEADERS, json={
-        "model":"gpt-4o-mini",
-        "messages":[{"role":"user","content":prompt}],
-        "temperature":0.5
-    }, timeout=60)
-    r.raise_for_status()
-    txt = r.json()["choices"][0]["message"]["content"]
-    facts = [f.strip(" -•") for f in re.split(r"[\n]+", txt) if f.strip()]
-    # enforce exactly 10
-    return facts[:10] if len(facts) >= 10 else facts + [""]*(10-len(facts))
 
-# -------- Hashtags (smart) --------
-def generate_hashtags(animal: str, count: int = 10):
-    prompt = (
-        f"Create {count} YouTube hashtags for an English wildlife facts video about the {animal}. "
-        "Return a space-separated single line."
-    )
-    try:
-        r = requests.post(OPENAI_CHAT_URL, headers=HEADERS, json={
-            "model":"gpt-4o-mini",
-            "messages":[{"role":"user","content":prompt}],
-            "temperature":0.4
-        }, timeout=40)
-        r.raise_for_status()
-        line = r.json()["choices"][0]["message"]["content"].replace("\n"," ").strip()
-        # sanitize
-        tags = [t if t.startswith("#") else f"#{t}" for t in re.split(r"\s+", line) if t]
-        # keep only words/#
-        tags = [re.sub(r"[^#A-Za-z0-9_]", "", t) for t in tags]
-        tags = [t for t in tags if len(t) > 1]
-        return " ".join(tags[:count])
-    except Exception:
-        fallback = ["#Wildlife","#Animals","#Nature","#AnimalFacts","#Documentary","#Learn","#Education","#Eco","#Planet","#Discover"]
-        return " ".join(fallback[:count])
-
-# -------- AI Thumbnail (DALL·E) --------
-def generate_thumbnail_ai(animal: str) -> str:
+def get_thumbnail_path(animal: str):
     """
-    Generates a 1280x720 thumbnail via OpenAI images API and returns local path.
+    ينشئ مسار آمن لصورة مصغرة للحيوان.
+    """
+    safe_name = re.sub(r'\W+', '_', animal.lower())
+    path = os.path.join(tempfile.gettempdir(), f"thumb_{safe_name}.png")
+    return path
+
+
+def save_json(data, filename="data.json"):
+    """
+    حفظ بيانات في ملف JSON مؤقت.
     """
     try:
-        prompt = (
-            f"High-impact YouTube thumbnail of a realistic {animal} close-up, dramatic lighting, "
-            "documentary style, sharp focus, cinematic composition, 1280x720."
-        )
-        r = requests.post(OPENAI_IMAGE_URL, headers=HEADERS, json={
-            "model":"gpt-image-1",
-            "prompt": prompt,
-            "size":"1280x720"
-        }, timeout=120)
-        r.raise_for_status()
-        b64 = r.json()["data"][0]["b64_json"]
-        import base64, tempfile
-        path = os.path.join(tempfile.gettempdir(), f"thumb_{re.sub(r'\\W+','_',animal.lower())}.png")
-        with open(path, "wb") as f:
-            f.write(base64.b64decode(b64))
+        path = os.path.join(tempfile.gettempdir(), filename)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"💾 Saved JSON file: {path}")
         return path
     except Exception as e:
-        # Fallback single-color thumbnail with PIL text
-        from PIL import Image, ImageDraw, ImageFont
-        img = Image.new("RGB",(1280,720),(30,30,30))
-        d = ImageDraw.Draw(img)
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 92)
-        except:
-            font = ImageFont.load_default()
-        text = animal.upper()
-        if hasattr(d,"textbbox"):
-            bbox = d.textbbox((0,0),text,font=font); w=bbox[2]-bbox[0]; h=bbox[3]-bbox[1]
+        print("⚠️ Failed to save JSON:", e)
+        return None
+
+
+def read_json(filename="data.json"):
+    """
+    قراءة ملف JSON محلي.
+    """
+    try:
+        path = os.path.join(tempfile.gettempdir(), filename)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+    except Exception as e:
+        print("⚠️ Failed to read JSON:", e)
+        return {}
+
+
+def generate_animal_description(animal):
+    """
+    إنشاء وصف نصي بسيط عن الحيوان بناءً على اسمه.
+    """
+    facts = [
+        f"The {animal} is one of the most fascinating creatures on Earth.",
+        f"Did you know? The {animal} has unique features that make it special.",
+        f"Learn 10 amazing facts about the {animal} today!",
+        f"The {animal} plays an important role in nature and ecosystems.",
+        f"Watch and discover more about the incredible {animal}."
+    ]
+    description = random.choice(facts)
+    print(f"🦁 Generated description for {animal}: {description}")
+    return description
+
+
+def generate_hashtags(animal):
+    """
+    إنشاء مجموعة هاشتاجات ذكية لكل حيوان.
+    """
+    hashtags = [
+        f"#{animal}",
+        f"#{animal}Facts",
+        "#Wildlife",
+        "#Nature",
+        "#Animals",
+        "#Discover",
+        "#Explore",
+        "#WildFactsHub"
+    ]
+    return list(set(hashtags))
+
+
+def download_image_from_api(animal):
+    """
+    تنزيل صورة أو فيديو من Pixabay أو Pexels كصورة مصغرة مؤقتة.
+    """
+    try:
+        api_key = os.getenv("PEXELS_API_KEY") or os.getenv("PIXABAY_API_KEY")
+        if not api_key:
+            print("⚠️ No API key for Pexels/Pixabay found.")
+            return None
+
+        query = f"{animal} animal"
+        url = f"https://pixabay.com/api/?key={api_key}&q={query}&image_type=photo&per_page=3"
+        r = requests.get(url)
+        data = r.json()
+
+        if "hits" in data and len(data["hits"]) > 0:
+            image_url = data["hits"][0]["largeImageURL"]
+            response = requests.get(image_url)
+            path = get_thumbnail_path(animal)
+            with open(path, "wb") as f:
+                f.write(response.content)
+            print(f"✅ Downloaded thumbnail for {animal}")
+            return path
         else:
-            w,h = d.textsize(text,font=font)
-        d.text(((1280-w)//2,(720-h)//2), text, fill=(240,240,240), font=font)
-        fallback_path = os.path.join("/tmp", f"thumb_{re.sub(r'\\W+','_',animal.lower())}.png")
-        img.save(fallback_path)
-        return fallback_path
+            print(f"⚠️ No image found for {animal}")
+            return None
+    except Exception as e:
+        print("⚠️ Error downloading image:", e)
+        return None
