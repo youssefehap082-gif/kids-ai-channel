@@ -3,6 +3,12 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+]
+
 def _client():
     creds = Credentials(
         None,
@@ -10,7 +16,7 @@ def _client():
         token_uri="https://oauth2.googleapis.com/token",
         client_id=os.getenv("YT_CLIENT_ID"),
         client_secret=os.getenv("YT_CLIENT_SECRET"),
-        scopes=["https://www.googleapis.com/auth/youtube.upload","https://www.googleapis.com/auth/youtube.force-ssl"],
+        scopes=SCOPES,
     )
     return build("youtube","v3",credentials=creds,cache_discovery=False)
 
@@ -37,7 +43,7 @@ def upload_video(video_path, title, desc, tags, thumb_path=None, privacy="public
         except Exception as e:
             print(f"⚠️ Thumbnail failed: {e}")
 
-    # Auto top comment
+    # Auto comment
     try:
         yt.commentThreads().insert(part="snippet", body={
             "snippet": {
@@ -57,3 +63,35 @@ def get_video_stats(video_id: str) -> int:
     items = r.get("items",[])
     if not items: return 0
     return int(items[0]["statistics"].get("viewCount","0"))
+
+def list_recent_videos(limit=50):
+    """يرجع قائمة أحدث فيديوهات القناة (id, title, is_short)."""
+    yt = _client()
+    cid_resp = yt.channels().list(part="id", mine=True).execute()
+    ch_id = cid_resp["items"][0]["id"]
+    search = yt.search().list(part="id,snippet", channelId=ch_id, maxResults=min(50,limit), order="date").execute()
+    results=[]
+    for it in search.get("items", []):
+        vid = it["id"].get("videoId")
+        if not vid: continue
+        title = it["snippet"].get("title","")
+        # shorts detection (تقريبي)
+        is_short = "#shorts" in title.lower()
+        results.append({"id": vid, "title": title, "is_short": is_short})
+    return results
+
+def get_video_stats_bulk(ids):
+    """يرجع {id: {views, likes}} لدفعة IDs."""
+    out = {}
+    if not ids: return out
+    yt = _client()
+    for i in range(0, len(ids), 50):
+        chunk = ids[i:i+50]
+        r = yt.videos().list(part="statistics", id=",".join(chunk)).execute()
+        for it in r.get("items", []):
+            s = it.get("statistics", {})
+            out[it["id"]] = {
+                "views": int(s.get("viewCount","0")),
+                "likes": int(s.get("likeCount","0")) if "likeCount" in s else 0
+            }
+    return out
