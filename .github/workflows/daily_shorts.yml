@@ -1,0 +1,32 @@
+name: Daily Shorts (6x)
+
+on:
+  schedule:
+    - cron: "0 8,11,14,17,20,23 * * *"  # 6 مرات في اليوم بتوقيت القاهرة
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up job
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate & publish 6 short videos (with auto retry)
+        run: |
+          for i in 1 2 3 4 5 6
+          do
+            echo "🚀 Attempt $i to upload short video..."
+            python -u src/main_shorts.py || echo "⚠️ Upload failed, retrying in 1 hour..." && sleep 3600
+          done
