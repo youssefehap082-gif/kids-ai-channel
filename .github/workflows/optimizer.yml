@@ -2,28 +2,31 @@ name: AI Optimizer (daily)
 
 on:
   schedule:
-    - cron: "40 11 * * *"   # قبل أول نشر بشوية (UTC)
+    # تشغيل مرة واحدة يوميًا الساعة 3 صباحًا بتوقيت مصر
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
-concurrency:
-  group: optimizer
-  cancel-in-progress: true
-
 jobs:
-  build:
+  optimize:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Set up job
+        run: echo "🧠 Starting AI Optimizer..."
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - name: Update model & weekly no-duplicate list
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          python-version: '3.11'
+
+      - name: Install dependencies
         run: |
-          python - <<'PY'
-          from src.optimizer_ai import daily_optimize
-          daily_optimize()   # يختار حيوانات اليوم ويمنع التكرار أسبوعيًا
-          PY
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Optimizer AI
+        run: |
+          echo "🔍 Running AI optimizer..."
+          python src/optimizer_ai.py
