@@ -1,118 +1,104 @@
-import sys, os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+import os
+import requests
 import json
 import random
-from youtube import list_recent_videos, get_video_stats_bulk
-from utils import get_trending_animals, get_thumbnail_path, generate_animal_description, generate_hashtags
+import datetime
+from googleapiclient.discovery import build
 
+from dotenv import load_dotenv
+from utils import get_video_stats, get_trending_animals
 
-def analyze_video_performance(videos):
+load_dotenv()
+
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+def get_youtube_trending_animals():
     """
-    تحليل أداء الفيديوهات السابقة لتحديد الأنواع الأفضل أداءً.
+    بيجيب الحيوانات أو المواضيع اللي طالعة تريند من اليوتيوب
     """
-    stats = get_video_stats_bulk([v["id"] for v in videos])
-    performance = {}
-
-    for video, stat in zip(videos, stats):
-        title = video["title"]
-        views = int(stat.get("viewCount", 0))
-        likes = int(stat.get("likeCount", 0))
-        comments = int(stat.get("commentCount", 0))
-
-        score = (views * 0.6) + (likes * 0.3) + (comments * 0.1)
-        animal = extract_animal_from_title(title)
-
-        if animal:
-            if animal not in performance:
-                performance[animal] = []
-            performance[animal].append(score)
-
-    avg_scores = {a: sum(s) / len(s) for a, s in performance.items()}
-    return sorted(avg_scores.items(), key=lambda x: x[1], reverse=True)
-
-
-def extract_animal_from_title(title):
-    """
-    استخراج اسم الحيوان من العنوان لو موجود.
-    """
-    title = title.lower()
-    animals = [
-        "lion", "tiger", "bear", "eagle", "shark", "wolf", "elephant",
-        "cheetah", "giraffe", "leopard", "panda", "zebra", "monkey",
-        "rhino", "hippo", "kangaroo", "fox", "crocodile", "gorilla",
-        "dolphin", "snake", "owl", "cat", "dog", "whale"
-    ]
-    for animal in animals:
-        if animal in title:
-            return animal
-    return None
-
-
-def optimize_next_videos():
-    """
-    تشغيل الذكاء الاصطناعي لتحليل الفيديوهات وتحديد حيوانات اليوم التالي.
-    """
-    print("🧠 Starting AI Optimizer...")
     try:
-        recent_videos = list_recent_videos(limit=20)
+        youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+        request = youtube.videos().list(
+            part="snippet,statistics",
+            chart="mostPopular",
+            regionCode="US",
+            videoCategoryId="15",  # category: Pets & Animals
+            maxResults=30
+        )
+        response = request.execute()
+
+        trending = []
+        for item in response.get("items", []):
+            title = item["snippet"]["title"].lower()
+            if any(animal in title for animal in [
+                "cat", "dog", "lion", "tiger", "bear", "snake",
+                "fish", "elephant", "bird", "wolf", "horse",
+                "panda", "monkey", "fox", "shark", "dolphin"
+            ]):
+                trending.append(title)
+        print(f"✅ YouTube trending animals found: {len(trending)}")
+        return trending
     except Exception as e:
-        print("⚠️ Failed to get recent videos:", e)
-        return
+        print(f"⚠️ Error fetching YouTube trending: {e}")
+        return []
 
-    if not recent_videos:
-        print("⚠️ No videos found to analyze.")
-        trending_animals = get_trending_animals(5)
-        save_optimized_animals(trending_animals)
-        return
-
-    ranking = analyze_video_performance(recent_videos)
-    top_animals = [r[0] for r in ranking[:5]] if ranking else []
-    print("🔥 Top trending animals (from channel):", top_animals)
-
-    trending_animals = get_trending_animals(5)
-    print("🌍 External trending animals (from API):", trending_animals)
-
-    # دمج القائمتين بدون تكرار
-    merged_list = list(set(top_animals + trending_animals))
-    print("✅ Final optimized animal list:", merged_list)
-
-    save_optimized_animals(merged_list)
-
-
-def save_optimized_animals(animal_list):
+def get_google_trends_animals():
     """
-    حفظ قائمة الحيوانات النهائية في ملف JSON لاستخدامها لاحقًا.
+    بيجيب الحيوانات اللي تريند عالميًا من Google Trends
     """
-    data = {
-        "optimized_animals": animal_list,
-        "count": len(animal_list)
-    }
-
     try:
-        with open("optimized_animals.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print("💾 Saved optimized data to optimized_animals.json")
-
-        # إنشاء وصف وهاشتاج لكل حيوان لتستخدمها الفيديوهات القادمة
-        details = []
-        for animal in animal_list:
-            desc = generate_animal_description(animal)
-            tags = generate_hashtags(animal)
-            thumb = get_thumbnail_path(animal)
-            details.append({
-                "animal": animal,
-                "description": desc,
-                "hashtags": tags,
-                "thumbnail": thumb
-            })
-
-        with open("animal_details.json", "w", encoding="utf-8") as f:
-            json.dump(details, f, ensure_ascii=False, indent=2)
-        print("📁 Created animal_details.json for next videos.")
+        import pytrends
+        from pytrends.request import TrendReq
+        pytrend = TrendReq()
+        pytrend.build_payload(kw_list=["animals", "wildlife", "zoo", "exotic animals"])
+        related = pytrend.related_queries()
+        keywords = []
+        for kw in related.values():
+            if kw and "top" in kw:
+                keywords += [row["query"] for _, row in kw["top"].iterrows() if any(x.isalpha() for x in row["query"])]
+        print(f"✅ Google Trends found {len(keywords)} animal-related keywords.")
+        return list(set(keywords))
     except Exception as e:
-        print("⚠️ Failed to save optimized animals:", e)
+        print(f"⚠️ Google Trends error: {e}")
+        return []
 
+def get_reddit_trending_animals():
+    """
+    بيجيب الحيوانات اللي عليها تفاعل عالي من Reddit
+    """
+    try:
+        headers = {'User-Agent': 'WildFactsBot/1.0'}
+        res = requests.get("https://www.reddit.com/r/Animals/top.json?t=day&limit=25", headers=headers)
+        posts = res.json().get("data", {}).get("children", [])
+        titles = [p["data"]["title"] for p in posts]
+        print(f"✅ Reddit trending posts fetched: {len(titles)}")
+        return titles
+    except Exception as e:
+        print(f"⚠️ Reddit trending fetch error: {e}")
+        return []
+
+def optimize_channel():
+    """
+    بيجمع كل المصادر ويعمل منها تحليل ذكي يختار المواضيع الأفضل للفيديوهات القادمة
+    """
+    print("🤖 Running Smart Optimization...")
+    youtube_trends = get_youtube_trending_animals()
+    google_trends = get_google_trends_animals()
+    reddit_trends = get_reddit_trending_animals()
+
+    all_trends = list(set(youtube_trends + google_trends + reddit_trends))
+    if not all_trends:
+        print("⚠️ No trending data found, using fallback animal list.")
+        all_trends = get_trending_animals()
+
+    selected = random.sample(all_trends, min(10, len(all_trends)))
+    print(f"🔥 Selected trending animals/topics: {selected}")
+
+    # نحفظ النتائج علشان الـ main_long.py و main_shorts.py يستخدموها
+    os.makedirs("data", exist_ok=True)
+    with open("data/trending_animals.json", "w", encoding="utf-8") as f:
+        json.dump(selected, f, ensure_ascii=False, indent=2)
+    print("✅ Optimization complete, results saved!")
 
 if __name__ == "__main__":
-    optimize_next_videos()
+    optimize_channel()
