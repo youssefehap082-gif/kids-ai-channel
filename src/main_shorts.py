@@ -1,37 +1,48 @@
-import sys, os, random
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-
-from src.media_sources import pick_video_urls
-from src.compose import compose_short
-from src.youtube import upload_video
-from src.music import get_background_music
-from src.optimizer_ai import recommend_next_animals, record_video_result
+import os
+import random
+import datetime
+import json
+from youtube import upload_video
+from media_sources import pick_video_urls
+from music_picker import pick_music
 
 def main():
-    try:
-        # 🧠 احصل على الحيوانات الموصى بها من الذكاء الاصطناعي
-        _, short_animals = recommend_next_animals(n_long=4, n_short=8)
-        print(f"🤖 AI suggested shorts for today: {short_animals}")
+    print("🎬 Starting shorts automation...")
+    os.makedirs("output", exist_ok=True)
 
-        # 🔁 إنتاج 8 شورتس تلقائيًا
-        for animal in short_animals:
-            print(f"🎬 Generating short for: {animal}")
-            urls = pick_video_urls(animal, need=4, prefer_vertical=True)
-            music_path = get_background_music()
-            final_path = compose_short(urls, music_path, target_duration=58)
+    # تحميل الحيوانات التريند
+    animals = []
+    if os.path.exists("data/trending_animals.json"):
+        with open("data/trending_animals.json", "r", encoding="utf-8") as f:
+            animals = json.load(f)
+    if not animals:
+        animals = ["Lion", "Elephant", "Tiger", "Panda", "Shark", "Giraffe"]
 
-            # ✅ عنوان بسيط وسهل النشر
-            title = f"{animal.title()} — Stunning Wildlife Moment! 🐾 #Shorts"
-            desc = f"Beautiful footage of the {animal.title()} in nature! 🐾\n#Animals #Wildlife #Nature"
-            tags = [animal, "wildlife", "animals", "shorts"]
+    # ✅ أول شورت ينزل فوراً
+    animal = random.choice(animals)
+    print(f"🎞️ Selected animal: {animal}")
+    video_urls = pick_video_urls(animal)
+    music = pick_music()
+    short_file = video_urls[0]  # أول فيديو قصير
 
-            vid = upload_video(final_path, title, desc, tags, privacy="public", schedule_time_rfc3339=None)
-            record_video_result(vid, title, is_short=True)
+    title = f"{animal} in Action! 🐾 #Shorts"
+    desc = f"Watch this amazing {animal}! Subscribe for more wild videos! 🌿"
+    tags = ["shorts", "wildlife", "animals", animal.lower()]
 
-            print(f"✅ Uploaded short for {animal}")
+    print("🚀 Uploading first short now...")
+    upload_video(short_file, title, desc, tags, privacy="public")
 
-    except Exception as e:
-        print(f"❌ Error in shorts: {e}")
+    # ✅ باقي الشورتات المجدولة
+    times = ["10:00", "14:00", "18:00", "22:00"]  # أفضل أوقات للجمهور الأجنبي
+    now = datetime.datetime.utcnow()
+    for t in times:
+        hour, minute = map(int, t.split(":"))
+        schedule_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if schedule_time < now:
+            schedule_time += datetime.timedelta(days=1)
+        schedule_time_iso = schedule_time.isoformat() + "Z"
+        print(f"🕒 Scheduling short for {schedule_time_iso}")
+        upload_video(short_file, title, desc, tags, privacy="private", schedule_time_rfc3339=schedule_time_iso)
 
 if __name__ == "__main__":
     main()
