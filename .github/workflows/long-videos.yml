@@ -2,47 +2,38 @@ name: Daily Long Videos (2x)
 
 on:
   schedule:
-    - cron: "0 13,20 * * *"   # 13:00 و 20:00 UTC (مناسب للأجانب)
+    # تشغيل كل يوم مرتين في مواعيد مختلفة (11 صباحًا و 9 مساء بتوقيت مصر)
+    - cron: '0 9 * * *'
+    - cron: '0 19 * * *'
   workflow_dispatch:
-
-concurrency:
-  group: long-videos
-  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - name: Set up job
+        run: echo "🚀 Starting Daily Long Videos job..."
 
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run 2 long videos (no long sleeps)
-        env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          COVER_API_KEY: ${{ secrets.COVER_API_KEY }}
-          STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
-          VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
-          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
         run: |
-          set -e
-          echo "🎬 Long #1"
-          python -u src/main_long.py || echo "⚠️ Long #1 failed, continue"
-          echo "🎬 Long #2"
-          python -u src/main_long.py || echo "⚠️ Long #2 failed, continue"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Generate & upload long videos
+        run: |
+          echo "🎬 Generating long videos..."
+          for i in 1 2; do
+            python src/main_long.py || echo "⚠️ Upload failed, retrying in 2 hours..."
+            sleep 5
+          done
