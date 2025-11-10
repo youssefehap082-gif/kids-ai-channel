@@ -1,53 +1,31 @@
 import os
-import random
-import datetime
-import json
-from youtube import upload_video
-from compose import compose_video
-from media_sources import pick_video_urls
-from tts import synthesize
+from src.youtube import upload_video
+from datetime import datetime
+import glob
 
-# ✅ تشغيل فيديو واحد مباشر والباقي متأخر حسب الجدول
 def main():
-    print("🎬 Starting long video automation...")
-    os.makedirs("output", exist_ok=True)
+    # تأكيد المسار المحلي للفيديوهات الجاهزة
+    video_files = glob.glob("/tmp/**/*.mp4", recursive=True)
+    if not video_files:
+        print("❌ No video files found to upload.")
+        return
 
-    # اختيار الحيوانات التريند
-    animals = []
-    if os.path.exists("data/trending_animals.json"):
-        with open("data/trending_animals.json", "r", encoding="utf-8") as f:
-            animals = json.load(f)
-    if not animals:
-        animals = ["Lion", "Elephant", "Tiger", "Panda", "Cheetah", "Shark"]
+    latest_video = max(video_files, key=os.path.getctime)
+    print(f"🎬 Found latest video: {latest_video}")
 
-    # ✅ اختار أول حيوان للفيديو الفوري
-    animal = random.choice(animals)
-    print(f"🐾 Selected animal: {animal}")
+    # بيانات الفيديو التجريبية
+    title = "Test Upload — WildFacts Hub 🦁"
+    description = "Automatic test upload from WildFacts Hub system. Stay tuned for daily wildlife videos!"
+    tags = ["Wildlife", "Nature", "Animals", "Facts"]
 
-    # توليد الفيديو
-    video_paths = pick_video_urls(animal)
-    voice_path = synthesize(animal, "facts about the " + animal)
-    final = compose_video(video_paths, voice_path)
+    # رفع الفيديو مباشرة (بدون جدول)
+    print("🚀 Uploading video directly...")
+    upload_id = upload_video(latest_video, title, description, tags, privacy="public")
 
-    # رفع أول فيديو فوراً
-    title = f"{animal} — Mind-Blowing Facts! 🐾"
-    desc = f"Discover amazing facts about the {animal}. Subscribe for more daily wild content! 🌍"
-    tags = ["wildlife", "animals", "nature", animal.lower()]
-
-    print("🚀 Uploading first long video now...")
-    upload_video(str(final), title, desc, tags, privacy="public")
-
-    # ✅ تحديد باقي الفيديوهات للأوقات المثالية
-    times = ["11:00", "15:00", "20:00"]  # بتوقيت GMT
-    now = datetime.datetime.utcnow()
-    for t in times:
-        hour, minute = map(int, t.split(":"))
-        schedule_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if schedule_time < now:
-            schedule_time += datetime.timedelta(days=1)
-        schedule_time_iso = schedule_time.isoformat() + "Z"
-        print(f"🕒 Scheduling next long video for {schedule_time_iso}")
-        upload_video(str(final), title, desc, tags, privacy="private", schedule_time_rfc3339=schedule_time_iso)
+    if upload_id:
+        print(f"✅ Successfully uploaded! Video ID: {upload_id}")
+    else:
+        print("❌ Upload failed — check your YouTube API credentials or token.")
 
 if __name__ == "__main__":
     main()
