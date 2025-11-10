@@ -1,33 +1,38 @@
-import os, random, time
+import sys, os, random
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from src.media_sources import pick_video_urls
 from src.compose import compose_short
 from src.youtube import upload_video
-from src.utils import generate_thumbnail_ai, generate_hashtags
+from src.music import get_background_music
+
+# 🔥 إعداد عام
+ANIMALS = ["lion", "elephant", "panda", "turtle", "tiger", "fox", "owl", "eagle", "giraffe", "koala"]
 
 def main():
-    print("🎞 Generating AI Animal Shorts...")
+    try:
+        animal = random.choice(ANIMALS)
+        print(f"🎬 Generating short for: {animal}")
 
-    animals = ["Lion", "Panda", "Koala", "Eagle", "Crocodile", "Elephant", "Shark", "Tiger", "Owl", "Cheetah"]
-    random.shuffle(animals)
+        # ✅ احصل على فيديوهات رأسية
+        urls = pick_video_urls(animal, need=4, prefer_vertical=True)
+        
+        # ✅ احصل على موسيقى مجانية بدون حقوق
+        music_path = get_background_music()
+        
+        # ✅ أنشئ الفيديو القصير
+        final_path = compose_short(urls, music_path, target_duration=58)
+        
+        # ✅ عنوان بسيط للشورت
+        title = f"{animal.title()} — Mind-Blowing Fact! #Shorts"
+        desc = f"Enjoy amazing wildlife footage of the {animal.title()}! 🐾\n#Animals #Wildlife #Nature"
+        tags = [animal, "wildlife", "animals", "shorts"]
+        
+        upload_video(final_path, title, desc, tags, privacy="public", schedule_time_rfc3339=None)
+        print("✅ Short uploaded successfully!")
 
-    for idx, animal in enumerate(animals[:6]):
-        try:
-            print(f"🐾 Creating short for {animal}")
-            urls = pick_video_urls(animal, need=6, prefer_vertical=True)
-            short_path = compose_short(urls, target_duration=58)
-
-            thumb = generate_thumbnail_ai(animal)
-            hashtags = generate_hashtags(animal)
-            title = f"The {animal} in Action 🐾 #Shorts"
-            desc = f"Watch the {animal} in its natural beauty! 🐾\n{hashtags}"
-
-            upload_video(short_path, title, desc, [animal, "shorts", "wildlife"], thumb_path=thumb, privacy="public")
-            print(f"✅ Uploaded short for {animal}")
-            time.sleep(10)
-        except Exception as e:
-            print(f"⚠️ Error with {animal}: {e}")
-
-    print("🎯 All shorts uploaded successfully!")
+    except Exception as e:
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     main()
