@@ -2,47 +2,42 @@ name: Daily Shorts (6x)
 
 on:
   schedule:
-    - cron: "0 12,15,18,21,0,3 * * *"   # 6 مواعيد موزعة (UTC)
+    # تشغيل 6 مرات يوميًا بفواصل كل 4 ساعات
+    - cron: '0 1 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 9 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 17 * * *'
+    - cron: '0 21 * * *'
   workflow_dispatch:
-
-concurrency:
-  group: short-videos
-  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - name: Set up job
+        run: echo "🎥 Starting Daily Shorts job..."
 
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run 6 shorts (parallel=3)
-        env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          COVER_API_KEY: ${{ secrets.COVER_API_KEY }}
-          STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
-          VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
-          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
         run: |
-          set -e
-          # نشغّل 3 شورتس مع بعض لتقليل الوقت، وبعدين 3 كمان
-          for b in 1 2; do
-            seq 1 3 | xargs -I{} -P 3 bash -lc 'python -u src/main_shorts.py || echo "⚠️ a short failed"'
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Generate & upload short videos
+        run: |
+          echo "🎬 Generating short videos..."
+          for i in 1 2 3 4 5 6; do
+            python src/main_shorts.py || echo "⚠️ Upload failed, retrying in 2 hours..."
+            sleep 5
           done
