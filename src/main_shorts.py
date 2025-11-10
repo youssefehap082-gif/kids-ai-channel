@@ -1,48 +1,31 @@
 import os
-import random
-import datetime
-import json
-from youtube import upload_video
-from media_sources import pick_video_urls
-from music_picker import pick_music
+from src.youtube import upload_video
+from datetime import datetime
+import glob
 
 def main():
-    print("🎬 Starting shorts automation...")
-    os.makedirs("output", exist_ok=True)
+    # نبحث عن أحدث فيديو قصير
+    short_videos = glob.glob("/tmp/**/*.mp4", recursive=True)
+    if not short_videos:
+        print("❌ No short videos found to upload.")
+        return
 
-    # تحميل الحيوانات التريند
-    animals = []
-    if os.path.exists("data/trending_animals.json"):
-        with open("data/trending_animals.json", "r", encoding="utf-8") as f:
-            animals = json.load(f)
-    if not animals:
-        animals = ["Lion", "Elephant", "Tiger", "Panda", "Shark", "Giraffe"]
+    latest_short = max(short_videos, key=os.path.getctime)
+    print(f"🎥 Found latest short: {latest_short}")
 
-    # ✅ أول شورت ينزل فوراً
-    animal = random.choice(animals)
-    print(f"🎞️ Selected animal: {animal}")
-    video_urls = pick_video_urls(animal)
-    music = pick_music()
-    short_file = video_urls[0]  # أول فيديو قصير
+    # بيانات الفيديو القصير
+    title = "Amazing Animal Moments #Shorts 🐾"
+    description = "Daily wildlife short by WildFacts Hub — Subscribe for more!"
+    tags = ["Shorts", "Wildlife", "Animals"]
 
-    title = f"{animal} in Action! 🐾 #Shorts"
-    desc = f"Watch this amazing {animal}! Subscribe for more wild videos! 🌿"
-    tags = ["shorts", "wildlife", "animals", animal.lower()]
+    # نرفع الفيديو فوراً
+    print("🚀 Uploading short directly...")
+    upload_id = upload_video(latest_short, title, description, tags, privacy="public")
 
-    print("🚀 Uploading first short now...")
-    upload_video(short_file, title, desc, tags, privacy="public")
-
-    # ✅ باقي الشورتات المجدولة
-    times = ["10:00", "14:00", "18:00", "22:00"]  # أفضل أوقات للجمهور الأجنبي
-    now = datetime.datetime.utcnow()
-    for t in times:
-        hour, minute = map(int, t.split(":"))
-        schedule_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if schedule_time < now:
-            schedule_time += datetime.timedelta(days=1)
-        schedule_time_iso = schedule_time.isoformat() + "Z"
-        print(f"🕒 Scheduling short for {schedule_time_iso}")
-        upload_video(short_file, title, desc, tags, privacy="private", schedule_time_rfc3339=schedule_time_iso)
+    if upload_id:
+        print(f"✅ Successfully uploaded short! Video ID: {upload_id}")
+    else:
+        print("❌ Upload failed — check your YouTube token or API permissions.")
 
 if __name__ == "__main__":
     main()
