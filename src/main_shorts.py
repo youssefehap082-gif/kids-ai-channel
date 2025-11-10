@@ -6,28 +6,22 @@ from src.compose import compose_short
 from src.youtube import upload_video
 from src.music import get_background_music
 
-# 🔥 إعداد عام
-ANIMALS = ["lion", "elephant", "panda", "turtle", "tiger", "fox", "owl", "eagle", "giraffe", "koala"]
+ANIMALS = ["lion", "elephant", "panda", "turtle", "tiger", "fox", "owl", "eagle", "giraffe", "koala", "wolf", "crocodile"]
 
 def main():
     try:
         animal = random.choice(ANIMALS)
         print(f"🎬 Generating short for: {animal}")
 
-        # ✅ احصل على فيديوهات رأسية
         urls = pick_video_urls(animal, need=4, prefer_vertical=True)
-        
-        # ✅ احصل على موسيقى مجانية بدون حقوق
         music_path = get_background_music()
-        
-        # ✅ أنشئ الفيديو القصير
         final_path = compose_short(urls, music_path, target_duration=58)
-        
-        # ✅ عنوان بسيط للشورت
-        title = f"{animal.title()} — Mind-Blowing Fact! #Shorts"
-        desc = f"Enjoy amazing wildlife footage of the {animal.title()}! 🐾\n#Animals #Wildlife #Nature"
-        tags = [animal, "wildlife", "animals", "shorts"]
-        
+
+        # ✅ عنوان SEO بسيط ومؤثر
+        title = f"{animal.title()} — Epic Wild Moment! 🐾 #Shorts"
+        desc = f"Stunning footage of the {animal.title()} in the wild. #Animals #Wildlife #Nature"
+        tags = [animal, "wildlife", "animals", "shorts", "nature"]
+
         upload_video(final_path, title, desc, tags, privacy="public", schedule_time_rfc3339=None)
         print("✅ Short uploaded successfully!")
 
