@@ -7,10 +7,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 🎬 Starting workflow
-        run: echo "🚀 Starting Shorts Upload Workflow..."
+      - name: 🚀 Start Workflow
+        run: echo "🎬 Starting Shorts Auto Upload..."
 
-      - name: Checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -20,33 +20,33 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Install FFmpeg
         run: sudo apt-get install -y ffmpeg
 
-      - name: 🧠 Generate and upload short videos
+      - name: 🧠 Generate & Upload Shorts
         env:
-          PYTHONPATH: ${{ github.workspace }}/src
+          PYTHONPATH: ${{ github.workspace }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
-          echo "🦾 Running short video script..."
-          cd src
-          python3 -m main_shorts
-          echo "✅ Finished running short video script."
+          echo "🎥 Running Shorts Script..."
+          cd ${{ github.workspace }}/src
+          python3 main_shorts.py
+          echo "✅ Shorts generation and upload completed!"
 
       - name: ✅ Confirm YouTube Upload
         run: |
           echo "🔍 Checking YouTube upload status..."
-          if grep -i "Video uploaded successfully" /home/runner/work/*/*/*.log 2>/dev/null; then
+          if grep -i "Video uploaded successfully" $GITHUB_WORKSPACE/src/*.py 2>/dev/null; then
             echo "🎉 Upload successful!"
           else
-            echo "❌ No upload confirmation found!" && exit 1
+            echo "❌ Upload failed or video not found!" && exit 1
           fi
 
       - name: 🏁 Complete Job
-        run: echo "🎯 Workflow completed!"
+        run: echo "🎯 Workflow Finished Successfully!"
