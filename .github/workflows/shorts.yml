@@ -34,7 +34,7 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
           echo "🦾 Running short video script..."
-          cd kids-ai-channel/src
+          cd src
           python3 main_shorts.py
           echo "✅ Finished running short video script."
 
