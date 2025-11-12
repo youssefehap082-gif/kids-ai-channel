@@ -1,0 +1,64 @@
+name: YouTube Auto Publish
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # كل يوم الساعة 08:00 UTC (غيرها لو تريد توقيت آخر)
+  workflow_dispatch:
+    inputs:
+      TEST_RUN:
+        description: 'true to run single test upload only'
+        required: false
+        default: 'false'
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    env:
+      # Map secrets to env vars used by scripts
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+      HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
+      VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
+      COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create workspace folder
+        run: mkdir -p workspace assets logs
+
+      - name: Run generator (test or full)
+        env:
+          TEST_RUN: ${{ github.event.inputs.TEST_RUN || 'false' }}
+        run: |
+          python tools/orchestrator.py
+
+      - name: Upload workspace as artifact (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace
+          path: workspace
