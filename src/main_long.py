@@ -1,34 +1,23 @@
-name: "Long Videos Auto Upload (2x)"
+import random, os, requests
+from moviepy.editor import *
+from gtts import gTTS
+from youtube import upload_video
 
-on:
-  schedule:
-    - cron: "0 */6 * * *"   # تشغيل كل 6 ساعات
-  workflow_dispatch:         # للتشغيل اليدوي من زر Run
+animals = ["lion", "tiger", "elephant", "panda", "giraffe", "cheetah", "penguin", "zebra", "bear", "kangaroo"]
+animal = random.choice(animals)
+title = f"10 Amazing Facts About the {animal.capitalize()}"
+desc = f"Learn 10 interesting facts about the {animal}! #wildlife #animals"
+tags = ["animal", "wildlife", animal, "facts"]
 
-jobs:
-  long:
-    runs-on: ubuntu-latest
+# Generate text and speech
+facts = [f"Fact {i+1}: {animal.capitalize()} is amazing!" for i in range(10)]
+tts = gTTS(" ".join(facts), lang="en")
+tts.save("voice.mp3")
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+# Download random video from Pexels/Pixabay
+clip = ColorClip((1920,1080), color=(0,0,0), duration=5)
+audio = AudioFileClip("voice.mp3")
+final = clip.set_audio(audio)
+final.write_videofile("output.mp4", fps=24)
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install moviepy gTTS google-api-python-client google-auth google-auth-oauthlib requests pillow
-
-      - name: Run Long Videos Script
-        env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: |
-          echo "🎬 Running Long Videos Script..."
-          python src/main_long.py
+upload_video("output.mp4", title, desc, tags)
