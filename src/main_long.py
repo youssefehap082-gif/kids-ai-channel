@@ -1,37 +1,52 @@
-import os, random, cv2, numpy as np
+import os
+import random
+import requests
+from moviepy.editor import ImageSequenceClip, AudioFileClip
+from gtts import gTTS
 from youtube import upload_video
 
-# 🧠 توليد محتوى الفيديو
-animals = ["Lion", "Panda", "Elephant", "Tiger", "Eagle", "Shark", "Dolphin", "Crocodile"]
-animal = random.choice(animals)
+# 🦁 قائمة الحيوانات
+animals = [
+    ("Lion", "The lion is known as the king of the jungle. It lives in groups called prides and can roar so loud it’s heard from 8 kilometers away."),
+    ("Elephant", "Elephants are the largest land animals on Earth. They have an incredible memory and communicate using low-frequency sounds."),
+    ("Tiger", "Tigers are strong hunters that can swim very well. Each tiger has unique stripes, just like human fingerprints."),
+    ("Panda", "Pandas spend up to 12 hours a day eating bamboo and are known for their calm and playful nature."),
+    ("Eagle", "Eagles have extremely sharp vision and can spot prey from over 3 kilometers away."),
+    ("Wolf", "Wolves are intelligent and social animals that live and hunt in packs."),
+    ("Shark", "Sharks have existed for more than 400 million years, even before dinosaurs.")
+]
 
-file_name = f"long_{animal.lower()}_{random.randint(1000,9999)}.mp4"
+animal, fact = random.choice(animals)
+print(f"🎬 Creating documentary for {animal}")
 
-print(f"🎬 Generating video about {animal}...")
-width, height = 1280, 720
-out = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*'mp4v'), 24, (width, height))
+# 🎤 توليد الصوت من النص
+tts = gTTS(text=f"Here are some amazing facts about the {animal}. {fact}", lang="en")
+tts.save("voice.mp3")
 
-for i in range(400):
-    frame = np.zeros((height, width, 3), dtype=np.uint8)
-    cv2.putText(frame, f"{animal} Facts #{i}", (200, 360),
-                cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
-    out.write(frame)
-out.release()
+# 🖼️ تحميل صور من Pexels API
+PEXELS_API = os.environ.get("PEXELS_API_KEY")
+headers = {"Authorization": PEXELS_API}
+res = requests.get(f"https://api.pexels.com/v1/search?query={animal}&per_page=10", headers=headers).json()
+images = [photo["src"]["medium"] for photo in res["photos"]]
 
-# 🎯 تحسين العنوان والوصف و الـ SEO
-title = f"10 Amazing Facts About The {animal} You Didn’t Know 🐾"
-description = (
-    f"Discover mind-blowing facts about the {animal}! "
-    "From wild nature secrets to unknown behaviors. "
-    "Subscribe for more daily wildlife videos 🐾\n\n"
-    "#wildlife #animals #nature #facts #documentary #AI"
-)
-tags = [animal.lower(), "animal facts", "wildlife", "nature", "AI video", "facts", "documentary"]
+# تنزيل الصور مؤقتًا
+os.makedirs("frames", exist_ok=True)
+for idx, url in enumerate(images):
+    img_data = requests.get(url).content
+    with open(f"frames/frame{idx}.jpg", "wb") as f:
+        f.write(img_data)
 
-print("🚀 Uploading video to YouTube...")
-video_id = upload_video(file_name, title, description, tags)
+# 🎥 إنشاء الفيديو من الصور
+clip = ImageSequenceClip(["frames/" + f for f in os.listdir("frames")], fps=1)
+audio = AudioFileClip("voice.mp3")
+final_video = clip.set_audio(audio)
+file_name = f"{animal.lower()}_documentary.mp4"
+final_video.write_videofile(file_name, fps=24)
 
-if video_id:
-    print(f"✅ Uploaded: https://youtu.be/{video_id}")
-else:
-    print("❌ Upload failed!")
+# 🧠 توليد العنوان والوصف والـ SEO
+title = f"Amazing Facts About The {animal} 🐾 | AI Documentary"
+description = f"Discover fascinating facts about the {animal}! AI-generated video with voice narration. #wildlife #animals #AI #documentary"
+tags = [animal.lower(), "wildlife", "documentary", "AI", "facts", "nature"]
+
+print("🚀 Uploading...")
+upload_video(file_name, title, description, tags)
