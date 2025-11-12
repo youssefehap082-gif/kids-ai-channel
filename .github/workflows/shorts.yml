@@ -14,39 +14,45 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 ffmpeg-python
 
       - name: Install FFmpeg
         run: sudo apt-get install -y ffmpeg
 
       - name: 🧠 Generate & Upload Shorts
+        run: |
+          cd src
+          echo "🎥 Running Shorts Script..."
+          python main_shorts.py || exit 1
         env:
-          PYTHONPATH: ${{ github.workspace }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-        run: |
-          echo "🎥 Running Shorts Script..."
-          cd ${{ github.workspace }}/src
-          python3 main_shorts.py
-          echo "✅ Shorts generation and upload completed!"
 
       - name: ✅ Confirm YouTube Upload
         run: |
           echo "🔍 Checking YouTube upload status..."
-          if grep -i "Video uploaded successfully" $GITHUB_WORKSPACE/src/*.py 2>/dev/null; then
-            echo "🎉 Upload successful!"
-          else
-            echo "❌ Upload failed or video not found!" && exit 1
-          fi
+          sleep 5
+          python - <<'PY'
+import sys, os
+from youtube import verify_upload
+
+video_id = os.getenv("LAST_VIDEO_ID", "")
+if not video_id:
+    print("❌ Upload failed or video not found!")
+    sys.exit(1)
+else:
+    ok = verify_upload(video_id)
+    if not ok:
+        sys.exit(1)
+PY
 
       - name: 🏁 Complete Job
-        run: echo "🎯 Workflow Finished Successfully!"
+        run: echo "🎉 All done! Shorts upload workflow finished."
