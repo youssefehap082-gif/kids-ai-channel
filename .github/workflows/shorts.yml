@@ -28,8 +28,8 @@ jobs:
 
       - name: 🧠 Generate & Upload Shorts
         run: |
-          cd src
           echo "🎥 Running Shorts Script..."
+          cd src
           python main_shorts.py || exit 1
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
