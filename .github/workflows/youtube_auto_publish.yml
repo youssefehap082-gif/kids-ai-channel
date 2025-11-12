@@ -2,16 +2,19 @@ name: YouTube Auto Publish
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # يوميًا الساعة 08:00 UTC
+    # Long videos - 16:00 UTC
+    - cron: '0 16 * * *'
+    # Shorts - 19:00 UTC
+    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
       TEST_RUN:
-        description: 'true to run single test upload only'
+        description: 'true to run single test upload only (for testing)'
         required: false
-        default: 'false'
+        default: 'true'
 
 jobs:
-  build-and-run:
+  run-automation:
     runs-on: ubuntu-latest
 
     steps:
@@ -35,9 +38,9 @@ jobs:
       - name: Create workspace folder
         run: mkdir -p workspace assets logs
 
-      - name: Run generator (test or full)
+      - name: Run Orchestrator
         env:
-          TEST_RUN: ${{ github.event.inputs.TEST_RUN || 'false' }}
+          TEST_RUN: ${{ github.event.inputs.TEST_RUN || 'true' }}
         run: python tools/orchestrator.py
 
       - name: Upload workspace as artifact (debug)
