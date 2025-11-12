@@ -1,9 +1,11 @@
 import os
+import time
 import googleapiclient.discovery
 import googleapiclient.errors
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaFileUpload
+
 
 def get_service():
     creds = Credentials(
@@ -15,53 +17,68 @@ def get_service():
         scopes=["https://www.googleapis.com/auth/youtube.upload"]
     )
     creds.refresh(Request())
-    service = googleapiclient.discovery.build("youtube", "v3", credentials=creds)
-    print("✅ YouTube API connection established.")
-    return service
+    return googleapiclient.discovery.build("youtube", "v3", credentials=creds, cache_discovery=False)
 
-def upload_video(file_path, title, description, tags, privacy="public", schedule_time_rfc3339=None):
+
+def upload_video(file_path, title, description, tags=None, privacy="public"):
     youtube = get_service()
-
-    if not os.path.exists(file_path):
-        print(f"❌ Video file not found: {file_path}")
-        raise FileNotFoundError(file_path)
-    else:
-        print(f"🎥 Found video file: {file_path}")
-
     request_body = {
         "snippet": {
             "title": title,
             "description": description,
-            "tags": tags,
-            "categoryId": "15"
+            "tags": tags or ["animals", "shorts", "funny", "wildlife"],
+            "categoryId": "15"  # Pets & Animals
         },
-        "status": {
-            "privacyStatus": privacy
-        }
+        "status": {"privacyStatus": privacy}
     }
 
-    if schedule_time_rfc3339:
-        request_body["status"]["publishAt"] = schedule_time_rfc3339
-        request_body["status"]["privacyStatus"] = "private"
-
     media = MediaFileUpload(file_path, chunksize=-1, resumable=True)
+
+    print(f"🚀 Starting upload for: {title}")
     request = youtube.videos().insert(
         part="snippet,status",
         body=request_body,
         media_body=media
     )
 
-    print(f"🚀 Uploading video: {title}")
     response = None
+    retry = 0
     while response is None:
-        status, response = request.next_chunk()
-        if status:
-            print(f"📦 Uploading progress: {int(status.progress() * 100)}%")
+        try:
+            status, response = request.next_chunk()
+            if status:
+                print(f"📦 Uploading... {int(status.progress() * 100)}%")
+        except Exception as e:
+            print(f"⚠️ Upload error: {e}")
+            retry += 1
+            if retry > 3:
+                print("❌ Too many errors, stopping upload.")
+                return None
+            time.sleep(5)
 
     if "id" in response:
         video_id = response["id"]
-        print(f"✅ Successfully uploaded video: https://youtube.com/watch?v={video_id}")
+        print(f"✅ Upload complete! Video ID: {video_id}")
         return video_id
     else:
-        print("❌ Upload failed. Response:", response)
-        raise Exception("Upload failed.")
+        print("❌ Upload failed, no video ID in response.")
+        return None
+
+
+def verify_upload(video_id):
+    youtube = get_service()
+    try:
+        request = youtube.videos().list(
+            part="snippet,status",
+            id=video_id
+        )
+        response = request.execute()
+        if response.get("items"):
+            print(f"✅ Verified! Video is live: https://youtube.com/watch?v={video_id}")
+            return True
+        else:
+            print("❌ Video not found after upload check.")
+            return False
+    except Exception as e:
+        print(f"⚠️ Verification failed: {e}")
+        return False
