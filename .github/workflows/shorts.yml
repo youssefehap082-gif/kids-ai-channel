@@ -1,36 +1,39 @@
-import os
-from youtube import upload_video
+name: "Shorts Auto Upload (6x)"
 
-# 🧠 هنا هتحط مسار الفيديو اللي بيتولد تلقائيًا من السكربت أو اختبار مؤقت
-test_video_path = "test_short.mp4"
+on:
+  workflow_dispatch:
 
-# ✅ لو مفيش فيديو جاهز، اعمل فيديو تجريبي بسيط علشان نختبر الرفع
-if not os.path.exists(test_video_path):
-    import ffmpeg
-    import numpy as np
-    import cv2
+jobs:
+  build:
+    name: "Run Shorts Workflow"
+    runs-on: ubuntu-latest
 
-    print("🎬 Generating test video...")
-    width, height = 720, 1280
-    out = cv2.VideoWriter(test_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 24, (width, height))
-    for i in range(100):
-        frame = np.zeros((height, width, 3), dtype=np.uint8)
-        cv2.putText(frame, f"Frame {i+1}", (200, 640), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
-        out.write(frame)
-    out.release()
-    print("🎥 Test video created!")
+    steps:
+      - name: 🚀 Start Workflow
+        run: echo "🎬 Starting Shorts Auto Upload..."
 
-# 🧾 تفاصيل الفيديو
-title = "🐾 Test Upload – AI Shorts Automation"
-description = "This is a test upload from GitHub Actions automation."
-tags = ["ai", "shorts", "automation", "test"]
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-print("🚀 Uploading to YouTube...")
-video_id = upload_video(test_video_path, title, description, tags)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-if video_id:
-    print(f"✅ Uploaded successfully! Video ID: {video_id}")
-    os.environ["LAST_VIDEO_ID"] = video_id
-else:
-    print("❌ Upload failed, no video ID returned!")
-    exit(1)
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 ffmpeg-python numpy opencv-python-headless
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: 🧠 Generate & Upload Shorts
+        run: |
+          echo "🎥 Running Shorts Script..."
+          cd src
+          python main_shorts.py || exit 1
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
