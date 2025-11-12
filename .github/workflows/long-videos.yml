@@ -1,11 +1,13 @@
-name: Long Videos Auto Upload (2x)
+name: "Long Videos Auto Upload (2x)"
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
+    name: "Run Long Videos Workflow"
     runs-on: ubuntu-latest
+
     steps:
       - name: 🚀 Start Workflow
         run: echo "🎬 Starting Long Videos Auto Upload..."
