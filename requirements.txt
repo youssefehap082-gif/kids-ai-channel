@@ -1,8 +1,9 @@
+openai
+elevenlabs
 requests
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 moviepy
 pexelspy
-pixabay-api
-cloudinary
+python-pixabay
