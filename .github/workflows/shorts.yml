@@ -1,37 +1,32 @@
-name: Shorts Auto Upload (6x)
+name: "Shorts Auto Upload (6x)"
 
 on:
   schedule:
-    - cron: "0 */4 * * *"  # كل 4 ساعات (أنسب توقيت للجمهور الأجنبي)
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 jobs:
-  build:
+  shorts:
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Start Workflow
-        run: echo "🎬 Starting AI Shorts Upload..."
-
-      - name: 📦 Checkout Repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 📚 Install Dependencies
+      - name: Install deps
         run: |
-          pip install moviepy gTTS google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
+          python -m pip install --upgrade pip
+          pip install moviepy gTTS google-api-python-client google-auth requests pillow
 
-      - name: 🎞️ Generate & Upload Shorts
-        run: |
-          python src/main_shorts.py
+      - name: Run Shorts
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-
-      - name: ✅ Confirm YouTube Upload
-        run: echo "✅ Shorts uploaded successfully (auto)"
+        run: |
+          python src/main_shorts.py
