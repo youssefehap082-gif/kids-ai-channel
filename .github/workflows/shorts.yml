@@ -1,11 +1,13 @@
-name: Shorts Auto Upload (6x)
+name: "Shorts Auto Upload (6x)"
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
+    name: "Run Shorts Workflow"
     runs-on: ubuntu-latest
+
     steps:
       - name: 🚀 Start Workflow
         run: echo "🎬 Starting Shorts Auto Upload..."
