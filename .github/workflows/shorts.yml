@@ -1,40 +1,37 @@
-name: "Shorts Auto Upload (6x)"
+name: Shorts Auto Upload (6x)
 
 on:
   schedule:
-    - cron: "0 */4 * * *"  # كل 4 ساعات
+    - cron: "0 */4 * * *"  # كل 4 ساعات (أنسب توقيت للجمهور الأجنبي)
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: 🚀 Start Workflow
-        run: echo "🎬 Starting Shorts Auto Upload..."
+        run: echo "🎬 Starting AI Shorts Upload..."
 
-      - name: Checkout Repo
+      - name: 📦 Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: 📚 Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 ffmpeg-python numpy opencv-python-headless
+          pip install moviepy gTTS google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
 
-      - name: Install FFmpeg
-        run: sudo apt-get install -y ffmpeg
-
-      - name: 🧠 Generate & Upload Shorts
+      - name: 🎞️ Generate & Upload Shorts
         run: |
-          echo "🎥 Running Shorts Script..."
-          cd src
-          python main_shorts.py || exit 1
+          python src/main_shorts.py
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+
+      - name: ✅ Confirm YouTube Upload
+        run: echo "✅ Shorts uploaded successfully (auto)"
