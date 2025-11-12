@@ -1,13 +1,13 @@
 name: "Shorts Auto Upload (6x)"
 
 on:
+  schedule:
+    - cron: "0 */4 * * *"  # كل 4 ساعات
   workflow_dispatch:
 
 jobs:
   build:
-    name: "Run Shorts Workflow"
     runs-on: ubuntu-latest
-
     steps:
       - name: 🚀 Start Workflow
         run: echo "🎬 Starting Shorts Auto Upload..."
