@@ -1,68 +1,71 @@
 # tools/media_collector.py
-import os, requests, shutil
+import os, requests, shutil, random
 from pathlib import Path
 
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
 
-def fetch_images_and_videos(query, out_folder="assets/tmp", needed_images=8, needed_videos=2):
+def download_file(url, out_path, timeout=60):
+    try:
+        r = requests.get(url, stream=True, timeout=timeout)
+        with open(out_path, "wb") as f:
+            shutil.copyfileobj(r.raw, f)
+        return True
+    except Exception:
+        return False
+
+def fetch_images_and_videos_public(query, out_folder="assets/tmp", needed_images=8, needed_videos=2):
     Path(out_folder).mkdir(parents=True, exist_ok=True)
-    # 1) Try Pexels images
-    headers = {"Authorization": PEXELS_API_KEY} if PEXELS_API_KEY else {}
-    images_downloaded = 0
-    page = 1
-    while images_downloaded < needed_images and PEXELS_API_KEY:
-        r = requests.get("https://api.pexels.com/v1/search", params={"query": query, "per_page":15, "page":page}, headers=headers, timeout=30)
-        if r.status_code!=200:
-            break
-        data = r.json()
-        for photo in data.get("photos",[]):
-            url = photo["src"]["large"]
-            fname = Path(out_folder)/f"img_{images_downloaded}_{photo['id']}.jpg"
-            if not fname.exists():
-                try:
-                    dl = requests.get(url, stream=True, timeout=30)
-                    with open(fname,"wb") as f:
-                        shutil.copyfileobj(dl.raw, f)
-                    images_downloaded +=1
-                except: pass
-            if images_downloaded>=needed_images:
-                break
-        page +=1
+    images = 0
+    videos = 0
 
-    # fallback using Pixabay if not enough
-    if images_downloaded < needed_images and PIXABAY_API_KEY:
-        r = requests.get("https://pixabay.com/api/", params={"key":PIXABAY_API_KEY,"q":query,"image_type":"photo","per_page":50})
-        if r.status_code==200:
-            for hit in r.json().get("hits",[]):
-                if images_downloaded>=needed_images: break
-                url = hit.get("largeImageURL")
-                fname = Path(out_folder)/f"img_pix_{images_downloaded}_{hit.get('id')}.jpg"
-                try:
-                    dl = requests.get(url, stream=True, timeout=30)
-                    with open(fname,"wb") as f:
-                        shutil.copyfileobj(dl.raw,f)
-                    images_downloaded+=1
-                except: pass
-
-    # Videos: try Pexels videos
-    videos_downloaded = 0
+    # Pexels images
     if PEXELS_API_KEY:
-        r = requests.get("https://api.pexels.com/videos/search", params={"query":query, "per_page":10}, headers=headers, timeout=30)
-        if r.status_code==200:
-            for v in r.json().get("videos",[]):
-                if videos_downloaded>=needed_videos: break
-                files = v.get("video_files",[])
-                # pick smallest mp4
-                files = sorted([f for f in files if f.get("file_type")== "video/mp4"], key=lambda x: x.get("width",0))
-                if not files: continue
-                url = files[0]["link"]
-                fname = Path(out_folder)/f"vid_{videos_downloaded}_{v['id']}.mp4"
-                try:
-                    dl = requests.get(url, stream=True, timeout=60)
-                    with open(fname,"wb") as f:
-                        shutil.copyfileobj(dl.raw,f)
-                    videos_downloaded+=1
-                except: pass
+        headers = {"Authorization": PEXELS_API_KEY}
+        page = 1
+        while images < needed_images:
+            r = requests.get("https://api.pexels.com/v1/search", params={"query":query, "per_page":15, "page":page}, headers=headers, timeout=30)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            for p in data.get("photos", []):
+                if images >= needed_images:
+                    break
+                url = p["src"].get("large") or p["src"].get("original")
+                if not url: continue
+                fname = Path(out_folder) / f"img_{images}_{p['id']}.jpg"
+                if download_file(url, fname):
+                    images += 1
+            if not data.get("photos"):
+                break
+            page += 1
 
-    return {"images": images_downloaded, "videos": videos_downloaded}
+    # Pixabay fallback images
+    if images < needed_images and PIXABAY_API_KEY:
+        r = requests.get("https://pixabay.com/api/", params={"key":PIXABAY_API_KEY, "q":query, "per_page":50, "image_type":"photo"})
+        if r.status_code == 200:
+            for h in r.json().get("hits", []):
+                if images >= needed_images: break
+                url = h.get("largeImageURL") or h.get("webformatURL")
+                fname = Path(out_folder) / f"img_px_{images}_{h.get('id')}.jpg"
+                if download_file(url, fname):
+                    images += 1
+
+    # Pexels videos
+    if PEXELS_API_KEY:
+        headers = {"Authorization": PEXELS_API_KEY}
+        r = requests.get("https://api.pexels.com/videos/search", params={"query":query, "per_page":15}, headers=headers, timeout=30)
+        if r.status_code == 200:
+            for v in r.json().get("videos", []):
+                if videos >= needed_videos: break
+                files = v.get("video_files", [])
+                files = [f for f in files if f.get("file_type") == "video/mp4"]
+                if not files: continue
+                # pick smallest mp4
+                files_sorted = sorted(files, key=lambda x: x.get("width", 9999))
+                url = files_sorted[0]["link"]
+                fname = Path(out_folder) / f"vid_{videos}_{v['id']}.mp4"
+                if download_file(url, fname, timeout=120):
+                    videos += 1
+
+    return {"images": images, "videos": videos}
