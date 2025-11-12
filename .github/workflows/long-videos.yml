@@ -1,37 +1,36 @@
-name: Long Videos Auto Upload (2x)
+name: "Long Videos Auto Upload (2x)"
 
 on:
   schedule:
-    - cron: "0 */12 * * *"  # كل 12 ساعة (مرتين يوميًا)
+    - cron: "0 */12 * * *"
   workflow_dispatch:
 
 jobs:
-  build:
+  long_videos:
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Start Workflow
-        run: echo "🎬 Starting AI Documentary Upload..."
-
-      - name: 📦 Checkout Repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 📚 Install Dependencies
+      - name: Install deps
         run: |
-          pip install moviepy gTTS google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
+          python -m pip install --upgrade pip
+          pip install moviepy gTTS google-api-python-client google-auth requests pillow
 
-      - name: 🎙️ Generate & Upload Long Videos
-        run: |
-          python src/main_long.py
+      - name: Run Long Video
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-
-      - name: ✅ Confirm YouTube Upload
-        run: echo "✅ Long videos uploaded successfully (auto)"
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}           # optional
+          ELEVEN_VOICE_MALE: ${{ secrets.ELEVEN_VOICE_MALE }}     # optional
+          ELEVEN_VOICE_FEMALE: ${{ secrets.ELEVEN_VOICE_FEMALE }} # optional
+        run: |
+          # Run once immediately (first run will upload one video), the scheduled triggers will run subsequently
+          python src/main_long.py
