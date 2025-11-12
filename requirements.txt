@@ -1,10 +1,7 @@
-requests
 moviepy
-pydub
+openai
 google-api-python-client
-google-auth
-google-auth-oauthlib
-gtts
-Pillow
-deep-translator
-validators
+pexels_api
+elevenlabs
+storyblocks
+subtitles
