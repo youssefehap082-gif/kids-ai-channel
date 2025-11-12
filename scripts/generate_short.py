@@ -1,7 +1,10 @@
 import json, random, os
 from pexels import get_images_for_animal
-from storyblocks import get_copyright_music
 from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeVideoClip
+
+def get_copyright_music(duration=30):
+    # موسيقى مجانية محلية أو روابط من pixabay أو pexels
+    return "assets/music/free_music.mp3"
 
 with open("animals/animals_list.json") as f:
     animals = json.load(f)
