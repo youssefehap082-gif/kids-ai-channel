@@ -1,34 +1,36 @@
 import os
-from src.media_sources import pick_video_urls
-from src.compose import compose_video
-from src.youtube import upload_video
+from youtube import upload_video
 
-def main():
-    print("🧠 main_long.py started successfully!")  # ✅ لمتابعة التشغيل
+# 🧠 مسار الفيديو (اختبار مؤقت)
+test_video_path = "test_long.mp4"
 
-    try:
-        topics = ["lion", "elephant", "tiger", "penguin", "panda"]
-        for topic in topics[:2]:  # ← هنا بيعمل فيديوهين بس في الرن
-            print(f"🎬 Generating long video for: {topic}")
-            paths = pick_video_urls(topic)
-            final_video = compose_video(paths, voiceover=True)
+# ✅ لو مفيش فيديو موجود، نعمل فيديو تجريبي بسيط مدته أطول
+if not os.path.exists(test_video_path):
+    import ffmpeg
+    import numpy as np
+    import cv2
 
-            title = f"WildFacts Hub - Amazing Facts About {topic.capitalize()}"
-            desc = f"Discover wild facts about {topic.capitalize()}! 🐾 #WildFactsHub"
-            tags = [topic, "animal facts", "wildlife", "nature"]
+    print("🎬 Generating long test video...")
+    width, height = 1280, 720
+    out = cv2.VideoWriter(test_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 24, (width, height))
+    for i in range(500):
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        cv2.putText(frame, f"Frame {i+1}", (400, 360), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
+        out.write(frame)
+    out.release()
+    print("🎥 Long test video created!")
 
-            print(f"🚀 Starting upload for: {title}")
-            video_id = upload_video(final_video, title, desc, tags, privacy="public")
+# 🧾 تفاصيل الفيديو
+title = "🎬 Test Upload – AI Long Video Automation"
+description = "This is a long test upload from GitHub Actions automation system."
+tags = ["ai", "automation", "long video", "test"]
 
-            if video_id:
-                print(f"✅ Upload success! Video ID: {video_id}")
-            else:
-                print("❌ Upload failed or video_id is None.")
+print("🚀 Uploading long video to YouTube...")
+video_id = upload_video(test_video_path, title, description, tags)
 
-        print("✅ main_long.py finished execution successfully.")
-
-    except Exception as e:
-        print(f"💥 Error in main_long.py: {e}")
-
-if __name__ == "__main__":
-    main()
+if video_id:
+    print(f"✅ Uploaded successfully! Video ID: {video_id}")
+    os.environ["LAST_VIDEO_ID"] = video_id
+else:
+    print("❌ Upload failed, no video ID returned!")
+    exit(1)
