@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: 🚀 Start Workflow
         run: echo "🎬 Starting Shorts Auto Upload..."
