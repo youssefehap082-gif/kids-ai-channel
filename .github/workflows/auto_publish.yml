@@ -2,7 +2,7 @@ name: YouTube Auto Publish
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # كل يوم الساعة 08:00 UTC (غيرها لو تريد توقيت آخر)
+    - cron: '0 8 * * *'   # يوميًا الساعة 08:00 UTC
   workflow_dispatch:
     inputs:
       TEST_RUN:
@@ -13,22 +13,6 @@ on:
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
-    env:
-      # Map secrets to env vars used by scripts
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-      REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-      YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-      HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-      STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
-      VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
-      COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -54,8 +38,7 @@ jobs:
       - name: Run generator (test or full)
         env:
           TEST_RUN: ${{ github.event.inputs.TEST_RUN || 'false' }}
-        run: |
-          python tools/orchestrator.py
+        run: python tools/orchestrator.py
 
       - name: Upload workspace as artifact (debug)
         uses: actions/upload-artifact@v4
