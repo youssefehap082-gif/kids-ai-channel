@@ -1,65 +1,85 @@
-import os
-import random
-import requests
-from moviepy.editor import ImageSequenceClip, AudioFileClip, TextClip, CompositeVideoClip
+import os, random, requests, datetime, time, re
 from gtts import gTTS
+from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeVideoClip, TextClip
 from youtube import upload_video
-import datetime
 
-# 🦁 بيانات الحيوانات والمعلومات
+# 🦁 قائمة الحيوانات والمعلومات
 animals = {
-    "Lion": "The lion is the king of the jungle, known for its strength and pride.",
-    "Elephant": "Elephants are the largest land animals with incredible intelligence and memory.",
-    "Tiger": "Tigers are powerful hunters and the largest members of the cat family.",
-    "Panda": "Pandas are calm, bamboo-loving bears known for their cuteness.",
-    "Wolf": "Wolves are loyal, smart, and live in social packs.",
-    "Eagle": "Eagles are known for their powerful flight and exceptional vision.",
-    "Shark": "Sharks have existed for over 400 million years, even before dinosaurs!"
+    "Lion": "The lion is the king of the jungle, powerful and majestic.",
+    "Elephant": "Elephants are intelligent and emotional giants of the wild.",
+    "Dolphin": "Dolphins are friendly, smart, and communicate using sound.",
+    "Tiger": "Tigers are solitary hunters with unmatched strength.",
+    "Wolf": "Wolves are pack animals known for their loyalty and teamwork.",
+    "Panda": "Pandas are calm and peaceful bamboo eaters.",
+    "Eagle": "Eagles can spot prey from miles away with their sharp vision.",
+    "Giraffe": "Giraffes are the tallest animals on Earth with long elegant necks."
 }
 
 animal, fact = random.choice(list(animals.items()))
-print(f"🎬 Generating long video for {animal}")
+print(f"🎬 Creating long video for {animal}")
 
-# 🎤 تبديل الصوت بين ذكر وأنثى
+# 🎤 توليد التعليق الصوتي (ذكر / أنثى)
 voice_gender = random.choice(["male", "female"])
-tts = gTTS(text=f"Here are some amazing facts about the {animal}. {fact}", lang="en", slow=False)
+tts_text = f"Here are some amazing facts about the {animal}. {fact}"
+tts = gTTS(text=tts_text, lang="en", slow=False)
 tts.save("voice.mp3")
 
 # 🖼️ تحميل صور من Pexels
-PEXELS_API = os.environ.get("PEXELS_API_KEY")
+PEXELS_API = os.getenv("PEXELS_API_KEY")
 headers = {"Authorization": PEXELS_API}
 res = requests.get(f"https://api.pexels.com/v1/search?query={animal}&per_page=8", headers=headers).json()
-images = [photo["src"]["medium"] for photo in res["photos"]]
+images = [photo["src"]["medium"] for photo in res["photos"] if "src" in photo]
 
 os.makedirs("frames", exist_ok=True)
-for idx, url in enumerate(images):
+for i, url in enumerate(images):
     img_data = requests.get(url).content
-    with open(f"frames/frame{idx}.jpg", "wb") as f:
+    with open(f"frames/frame{i}.jpg", "wb") as f:
         f.write(img_data)
 
 # 🎥 إنشاء الفيديو
 clip = ImageSequenceClip(["frames/" + f for f in os.listdir("frames")], fps=1)
 audio = AudioFileClip("voice.mp3")
+duration = audio.duration
+subtitle = TextClip(fact, fontsize=36, color='white', bg_color='black', size=(720, 120)).set_duration(duration).set_position(("center", "bottom"))
+final = CompositeVideoClip([clip.set_audio(audio), subtitle]).set_duration(duration)
+file_name = f"{animal.lower()}_facts.mp4"
+final.write_videofile(file_name, fps=24)
 
-# 📝 إضافة الترجمة النصية
-subtitle = TextClip(f"{fact}", fontsize=32, color='white', bg_color='black', size=(720, 100))
-subtitle = subtitle.set_duration(audio.duration).set_position(("center", "bottom"))
-final_clip = CompositeVideoClip([clip.set_audio(audio), subtitle])
-file_name = f"{animal.lower()}_documentary.mp4"
-final_clip.write_videofile(file_name, fps=24)
+# 💬 توليد ملف ترجمة SRT
+def generate_srt(text, duration):
+    lines = re.findall('.{1,40}(?:\s+|$)', text)
+    part_duration = duration / len(lines)
+    srt = ""
+    for i, line in enumerate(lines):
+        start = str(datetime.timedelta(seconds=int(i * part_duration)))
+        end = str(datetime.timedelta(seconds=int((i + 1) * part_duration)))
+        srt += f"{i+1}\n0{start},000 --> 0{end},000\n{line.strip()}\n\n"
+    return srt
+
+srt_content = generate_srt(tts_text, duration)
+with open("subtitles.srt", "w", encoding="utf-8") as f:
+    f.write(srt_content)
 
 # 🧠 تحسين الـ SEO
-title = f"Amazing Facts About The {animal} 🐾 | AI Wildlife Documentary"
-description = f"Discover amazing facts about the {animal}! AI-generated documentary with narration and subtitles.\n\n#AI #Wildlife #Animals #Nature #Facts"
-tags = [animal.lower(), "wildlife", "AI", "documentary", "animals", "facts"]
+title = f"Amazing Facts About {animal} 🐾 | AI Wildlife Documentary"
+description = f"Discover incredible facts about {animal}! AI voice, subtitles, and HD visuals.\n\n#AI #Wildlife #Nature #Facts #Animals"
+tags = [animal.lower(), "AI", "wildlife", "documentary", "nature", "facts"]
 
-# ⏰ تحديد وقت النشر (أفضل مواعيد أمريكا وأوروبا)
-current_hour = datetime.datetime.utcnow().hour
-if current_hour < 12:
-    schedule_time = "Evening (USA)"
+# ⏰ أفضل مواعيد نشر (جمهور أجنبي)
+hour = datetime.datetime.utcnow().hour
+if 16 <= hour <= 23:
+    schedule_time = "Prime Time (US)"
 else:
     schedule_time = "Morning (Europe)"
-print(f"🕓 Scheduled for {schedule_time}")
+print(f"🕓 Posting during: {schedule_time}")
 
-print("🚀 Uploading...")
-upload_video(file_name, title, description, tags)
+# 🚀 رفع الفيديو
+for attempt in range(3):
+    try:
+        print(f"🚀 Attempt {attempt+1} upload...")
+        upload_video(file_name, title, description, tags)
+        print("✅ Uploaded successfully!")
+        break
+    except Exception as e:
+        print(f"❌ Upload failed: {e}")
+        time.sleep(600)
