@@ -3,5 +3,4 @@ openai
 google-api-python-client
 pexels_api
 elevenlabs
-storyblocks
 subtitles
