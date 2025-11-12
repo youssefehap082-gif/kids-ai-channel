@@ -1,85 +1,116 @@
-import os, random, requests, datetime, time, re
-from gtts import gTTS
+# src/main_long.py
+import os
+import random
+import datetime
+import time
+from pathlib import Path
+import requests
 from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeVideoClip, TextClip
-from youtube import upload_video
+from tts_utils import generate_tts
+from helpers import generate_srt_from_text
+from youtube import upload_video, upload_captions
 
-# 🦁 قائمة الحيوانات والمعلومات
-animals = {
+# --- CONFIG ---
+FRAMES_FOLDER = "temp_frames_long"
+OUT_FOLDER = "generated"
+Path(FRAMES_FOLDER).mkdir(parents=True, exist_ok=True)
+Path(OUT_FOLDER).mkdir(parents=True, exist_ok=True)
+
+ANIMALS = {
     "Lion": "The lion is the king of the jungle, powerful and majestic.",
-    "Elephant": "Elephants are intelligent and emotional giants of the wild.",
-    "Dolphin": "Dolphins are friendly, smart, and communicate using sound.",
-    "Tiger": "Tigers are solitary hunters with unmatched strength.",
-    "Wolf": "Wolves are pack animals known for their loyalty and teamwork.",
-    "Panda": "Pandas are calm and peaceful bamboo eaters.",
-    "Eagle": "Eagles can spot prey from miles away with their sharp vision.",
-    "Giraffe": "Giraffes are the tallest animals on Earth with long elegant necks."
+    "Elephant": "Elephants are intelligent matriarchal animals with incredible memory.",
+    "Dolphin": "Dolphins are social and intelligent marine mammals that use echolocation.",
+    "Tiger": "Tigers are solitary hunters with unique stripes used for camouflage.",
+    "Panda": "Pandas spend most of their day eating bamboo.",
+    "Wolf": "Wolves are highly social animals that live and hunt in packs.",
+    "Eagle": "Eagles have extraordinary vision and are excellent hunters.",
+    "Shark": "Sharks have roamed the oceans for hundreds of millions of years."
 }
 
-animal, fact = random.choice(list(animals.items()))
-print(f"🎬 Creating long video for {animal}")
+def fetch_images(animal, count=8):
+    PEXELS_API = os.getenv("PEXELS_API_KEY")
+    headers = {"Authorization": PEXELS_API}
+    url = f"https://api.pexels.com/v1/search?query={animal}&per_page={count}"
+    r = requests.get(url, headers=headers, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    images = [p["src"]["large"] for p in data.get("photos", [])]
+    return images
 
-# 🎤 توليد التعليق الصوتي (ذكر / أنثى)
-voice_gender = random.choice(["male", "female"])
-tts_text = f"Here are some amazing facts about the {animal}. {fact}"
-tts = gTTS(text=tts_text, lang="en", slow=False)
-tts.save("voice.mp3")
+def download_images(urls, target_folder):
+    Path(target_folder).mkdir(parents=True, exist_ok=True)
+    paths = []
+    for i, u in enumerate(urls):
+        ext = ".jpg"
+        p = Path(target_folder) / f"frame_{i}{ext}"
+        r = requests.get(u, timeout=30)
+        r.raise_for_status()
+        p.write_bytes(r.content)
+        paths.append(str(p))
+    return paths
 
-# 🖼️ تحميل صور من Pexels
-PEXELS_API = os.getenv("PEXELS_API_KEY")
-headers = {"Authorization": PEXELS_API}
-res = requests.get(f"https://api.pexels.com/v1/search?query={animal}&per_page=8", headers=headers).json()
-images = [photo["src"]["medium"] for photo in res["photos"] if "src" in photo]
+def make_video_from_images(image_paths, audio_path, out_path, add_cta_text=True, title_text=None):
+    clip = ImageSequenceClip(image_paths, fps=1)
+    audio = AudioFileClip(audio_path)
+    duration = audio.duration
+    # subtitle area
+    subtitle = TextClip(title_text or "", fontsize=40, color='white', bg_color='black', size=(clip.w, 100)).set_duration(duration).set_position(("center","bottom"))
+    clips = [clip.set_audio(audio)]
+    if title_text:
+        clips.append(subtitle)
+    final = CompositeVideoClip(clips).set_duration(duration)
+    final.write_videofile(out_path, fps=24, verbose=False, logger=None)
+    return out_path, duration
 
-os.makedirs("frames", exist_ok=True)
-for i, url in enumerate(images):
-    img_data = requests.get(url).content
-    with open(f"frames/frame{i}.jpg", "wb") as f:
-        f.write(img_data)
+def main():
+    animal = random.choice(list(ANIMALS.keys()))
+    fact = ANIMALS[animal]
+    print(f"🎬 Preparing long video about: {animal}")
 
-# 🎥 إنشاء الفيديو
-clip = ImageSequenceClip(["frames/" + f for f in os.listdir("frames")], fps=1)
-audio = AudioFileClip("voice.mp3")
-duration = audio.duration
-subtitle = TextClip(fact, fontsize=36, color='white', bg_color='black', size=(720, 120)).set_duration(duration).set_position(("center", "bottom"))
-final = CompositeVideoClip([clip.set_audio(audio), subtitle]).set_duration(duration)
-file_name = f"{animal.lower()}_facts.mp4"
-final.write_videofile(file_name, fps=24)
+    # alternate voice gender
+    voice_gender = random.choice(["male","female"])
+    tts_text = f"Hello! Here are a few amazing facts about the {animal}. {fact}. Don't forget to subscribe and hit the bell for more."
+    voice_path = "voice_long.mp3"
+    generate_tts(tts_text, out_path=voice_path, gender=voice_gender)
 
-# 💬 توليد ملف ترجمة SRT
-def generate_srt(text, duration):
-    lines = re.findall('.{1,40}(?:\s+|$)', text)
-    part_duration = duration / len(lines)
-    srt = ""
-    for i, line in enumerate(lines):
-        start = str(datetime.timedelta(seconds=int(i * part_duration)))
-        end = str(datetime.timedelta(seconds=int((i + 1) * part_duration)))
-        srt += f"{i+1}\n0{start},000 --> 0{end},000\n{line.strip()}\n\n"
-    return srt
-
-srt_content = generate_srt(tts_text, duration)
-with open("subtitles.srt", "w", encoding="utf-8") as f:
-    f.write(srt_content)
-
-# 🧠 تحسين الـ SEO
-title = f"Amazing Facts About {animal} 🐾 | AI Wildlife Documentary"
-description = f"Discover incredible facts about {animal}! AI voice, subtitles, and HD visuals.\n\n#AI #Wildlife #Nature #Facts #Animals"
-tags = [animal.lower(), "AI", "wildlife", "documentary", "nature", "facts"]
-
-# ⏰ أفضل مواعيد نشر (جمهور أجنبي)
-hour = datetime.datetime.utcnow().hour
-if 16 <= hour <= 23:
-    schedule_time = "Prime Time (US)"
-else:
-    schedule_time = "Morning (Europe)"
-print(f"🕓 Posting during: {schedule_time}")
-
-# 🚀 رفع الفيديو
-for attempt in range(3):
+    # fetch images
     try:
-        print(f"🚀 Attempt {attempt+1} upload...")
-        upload_video(file_name, title, description, tags)
-        print("✅ Uploaded successfully!")
-        break
+        images = fetch_images(animal, count=8)
+        image_paths = download_images(images, FRAMES_FOLDER)
     except Exception as e:
-        print(f"❌ Upload failed: {e}")
-        time.sleep(600)
+        print(f"⚠️ Pexels image fetch failed: {e}. Falling back to placeholders.")
+        # create placeholder solid color images using moviepy fallback
+        from PIL import Image
+        image_paths = []
+        for i in range(6):
+            img = Image.new("RGB", (1280,720), color=(30+i*10, 60+i*10, 90+i*10))
+            p = Path(FRAMES_FOLDER)/f"ph_{i}.jpg"
+            img.save(p)
+            image_paths.append(str(p))
+
+    # build video
+    out_file = f"{OUT_FOLDER}/{animal.lower()}_{int(time.time())}.mp4"
+    title_text = f"Amazing Facts About The {animal}"
+    out_file, duration = make_video_from_images(image_paths, voice_path, out_file, title_text=title_text)
+
+    # generate SRT
+    srt_text = generate_srt_from_text(tts_text, duration)
+    srt_path = out_file.replace(".mp4", ".srt")
+    Path(srt_path).write_text(srt_text, encoding="utf-8")
+
+    # SEO
+    title = f"Amazing Facts About The {animal} 🐾 | AI Documentary"
+    description = f"Discover amazing facts about the {animal}. Narration, subtitles and HD visuals. Subscribe for daily wildlife videos!\n\n#wildlife #animals #AI #documentary"
+    tags = [animal.lower(), "wildlife", "documentary", "AI", "facts", "nature"]
+
+    # upload
+    from youtube import upload_video, upload_captions
+    video_id = upload_video(out_file, title, description, tags, language="en", privacy="public")
+    if video_id:
+        try:
+            upload_captions(video_id, srt_path, language="en", name="English (auto)")
+        except Exception as e:
+            print(f"⚠️ Captions upload failed: {e}")
+
+if __name__ == "__main__":
+    main()
