@@ -6,4 +6,4 @@ google-auth-oauthlib
 google-auth-httplib2
 moviepy
 pexelspy
-python-pixabay
+pixabay-python
