@@ -1,40 +1,37 @@
-name: "Long Videos Auto Upload (2x)"
+name: Long Videos Auto Upload (2x)
 
 on:
   schedule:
-    - cron: "0 */12 * * *"  # كل 12 ساعة
+    - cron: "0 */12 * * *"  # كل 12 ساعة (مرتين يوميًا)
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: 🚀 Start Workflow
-        run: echo "🎬 Starting Long Videos Auto Upload..."
+        run: echo "🎬 Starting AI Documentary Upload..."
 
-      - name: Checkout Repo
+      - name: 📦 Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: 📚 Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 ffmpeg-python numpy opencv-python-headless
+          pip install moviepy gTTS google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
 
-      - name: Install FFmpeg
-        run: sudo apt-get install -y ffmpeg
-
-      - name: 🧠 Generate & Upload Long Video
+      - name: 🎙️ Generate & Upload Long Videos
         run: |
-          echo "🎥 Running Long Video Script..."
-          cd src
-          python main_long.py || exit 1
+          python src/main_long.py
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+
+      - name: ✅ Confirm YouTube Upload
+        run: echo "✅ Long videos uploaded successfully (auto)"
