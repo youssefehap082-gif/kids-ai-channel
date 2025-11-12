@@ -1,6 +1,11 @@
-moviepy
 openai
-google-api-python-client
-pexels_api
 elevenlabs
-subtitles
+requests
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+moviepy
+pexelspy
+pixabay-api
+replicate
+cloudinary
