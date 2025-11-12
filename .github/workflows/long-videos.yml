@@ -1,13 +1,13 @@
 name: "Long Videos Auto Upload (2x)"
 
 on:
+  schedule:
+    - cron: "0 */12 * * *"  # كل 12 ساعة
   workflow_dispatch:
 
 jobs:
   build:
-    name: "Run Long Videos Workflow"
     runs-on: ubuntu-latest
-
     steps:
       - name: 🚀 Start Workflow
         run: echo "🎬 Starting Long Videos Auto Upload..."
@@ -37,6 +37,3 @@ jobs:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-
-      - name: 🏁 Complete Job
-        run: echo "🎉 All done! Long video upload workflow finished."
