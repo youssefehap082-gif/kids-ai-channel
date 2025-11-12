@@ -1,28 +1,32 @@
+# tools/optimizer.py
 import json, time
 from pathlib import Path
 
 WORKDIR = Path("workspace")
+LOG = WORKDIR / "upload_log.json"
 
 class AIOptimizer:
     def _init_(self):
-        self.report = WORKDIR / "optimizer_report.json"
+        self.report_file = WORKDIR / "optimizer_report.json"
 
     def run(self):
-        log = WORKDIR / "upload_log.json"
-        if not log.exists():
+        if not LOG.exists():
+            report = {"time": time.ctime(), "message": "No uploads yet."}
+            self.report_file.write_text(json.dumps(report, indent=2))
+            return report
+        try:
+            data = json.loads(LOG.read_text())
+        except:
             data = []
-        else:
-            data = json.loads(log.read_text())
-        # تحليل بسيط: أكثر الحيوانات تكرارًا
         stats = {}
-        for v in data:
-            a = v.get("animal")
+        for item in data:
+            a = item.get("animal", "unknown")
             stats[a] = stats.get(a, 0) + 1
-        top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:5]
-        report = {
-            "time": time.ctime(),
-            "most_uploaded": top,
-            "recommendation": f"Focus on animals like {', '.join([x[0] for x in top])} with better engagement.",
+        top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
+        rec = {
+            "generated_at": time.ctime(),
+            "top_uploaded_animals": top,
+            "recommendation": "Focus on top animals and create variations (shorts + long)."
         }
-        self.report.write_text(json.dumps(report, indent=2))
-        return report
+        self.report_file.write_text(json.dumps(rec, indent=2))
+        return rec
