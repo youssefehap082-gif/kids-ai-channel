@@ -2,8 +2,9 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 import os
+import time
 
-def upload_video(file_path, title, description, tags):
+def upload_video(file_path, title, description, tags, language="en"):
     creds = Credentials(
         None,
         refresh_token=os.environ["YT_REFRESH_TOKEN"],
@@ -19,11 +20,12 @@ def upload_video(file_path, title, description, tags):
             "title": title,
             "description": description,
             "tags": tags,
-            "categoryId": "22"
+            "categoryId": "22",  # People & Blogs
+            "defaultLanguage": language
         },
         "status": {
             "privacyStatus": "public",
-            "selfDeclaredMadeForKids": True
+            "selfDeclaredMadeForKids": False
         }
     }
 
@@ -34,11 +36,18 @@ def upload_video(file_path, title, description, tags):
         media_body=media
     )
 
+    print(f"🚀 Uploading: {title}")
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
             print(f"Uploading... {int(status.progress() * 100)}%")
+        time.sleep(2)
 
-    print(f"✅ Upload complete: https://youtu.be/{response['id']}")
-    return response["id"]
+    if "id" in response:
+        video_id = response["id"]
+        print(f"✅ Uploaded Successfully: https://youtu.be/{video_id}")
+        return video_id
+    else:
+        print("❌ Upload Failed!")
+        return None
