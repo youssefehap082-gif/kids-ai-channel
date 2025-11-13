@@ -12,8 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import setup_logging, load_config
 
-# استيراد الـ Uploader الجديد
-from youtube_uploader import RealYouTubeUploader
+# استيراد الـ Uploader المُصلح
+from youtube_uploader_fixed import RealYouTubeUploader
 
 class SimpleAnimalSelector:
     def get_animal(self):
@@ -169,7 +169,7 @@ class YouTubeAutomation:
         self.content_generator = SimpleContentGenerator()
         self.video_creator = SimpleVideoCreator()
         
-        # اختيار نظام الرفع المناسب - هذا هو التحديث المطلوب
+        # اختيار نظام الرفع المناسب
         if real_upload:
             self.youtube_uploader = RealYouTubeUploader()
         else:
