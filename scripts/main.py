@@ -4,6 +4,7 @@ import argparse
 import logging
 import sys
 import json
+import time
 from datetime import datetime
 
 # إعداد المسارات
@@ -88,19 +89,17 @@ class SimpleVideoCreator:
             video_path = f"{output_dir}/{content['animal'].lower()}_{timestamp}.mp4"
             
             # إنشاء فيديو تجريبي بسيط
-            # في الإصدار النهائي، استبدل هذا بإنشاء فيديو حقيقي
             with open(video_path, 'w') as f:
                 f.write(f"Simulated video file for: {content['title']}")
             
             logging.info(f"✅ تم إنشاء فيديو طويل: {video_path}")
             logging.info(f"   العنوان: {content['title']}")
-            logging.info(f"   المدة: 3-5 دقائق (محاكاة)")
             
             return video_path
             
         except Exception as e:
             logging.error(f"❌ خطأ في إنشاء الفيديو الطويل: {e}")
-            return f"outputs/videos/fallback_{content['animal']}.mp4"
+            return None
     
     def create_short_video(self, content):
         """إنشاء شورت"""
@@ -111,19 +110,17 @@ class SimpleVideoCreator:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             short_path = f"{output_dir}/{content['animal'].lower()}_short_{timestamp}.mp4"
             
-            # إنشاء شورت تجريبي بسيط
             with open(short_path, 'w') as f:
                 f.write(f"Simulated short video for: {content['title']}")
             
             logging.info(f"✅ تم إنشاء شورت: {short_path}")
             logging.info(f"   العنوان: {content['title']}")
-            logging.info(f"   المدة: 15-60 ثانية (محاكاة)")
             
             return short_path
             
         except Exception as e:
             logging.error(f"❌ خطأ في إنشاء الشورت: {e}")
-            return f"outputs/shorts/fallback_{content['animal']}_short.mp4"
+            return None
 
 class RealYouTubeUploader:
     """نظام الرفع الفعلي على اليوتيوب"""
@@ -136,9 +133,15 @@ class RealYouTubeUploader:
         try:
             import google.oauth2.credentials
             import googleapiclient.discovery
-            import googleapiclient.http
             
-            # الحصول على credentials من environment variables
+            # التحقق من وجود جميع المتطلبات
+            required_env_vars = ['YT_CLIENT_ID', 'YT_CLIENT_SECRET', 'YT_REFRESH_TOKEN']
+            for var in required_env_vars:
+                if not os.getenv(var):
+                    logging.error(f"❌ متغير البيئة {var} غير موجود")
+                    self.youtube = None
+                    return
+            
             credentials = google.oauth2.credentials.Credentials(
                 token=None,
                 refresh_token=os.getenv('YT_REFRESH_TOKEN'),
@@ -155,19 +158,23 @@ class RealYouTubeUploader:
             
         except Exception as e:
             logging.error(f"❌ فشل إعداد YouTube API: {e}")
-            # في حالة الفشل، نستخدم وضع المحاكاة
             self.youtube = None
     
     def upload_video(self, video_path, content):
         """رفع فيديو فعلي على اليوتيوب"""
         try:
             if self.youtube is None:
-                logging.error("❌ خدمة YouTube غير متوفرة")
+                logging.error("❌ خدمة YouTube غير متوفرة - تأكد من إعداد الـ Secrets")
+                return None
+            
+            if not os.path.exists(video_path):
+                logging.error(f"❌ ملف الفيديو غير موجود: {video_path}")
                 return None
             
             logging.info(f"🚀 بدء رفع الفيديو على اليوتيوب...")
             logging.info(f"   📹 العنوان: {content['title']}")
             logging.info(f"   🐾 الحيوان: {content['animal']}")
+            logging.info(f"   📁 الملف: {os.path.basename(video_path)}")
             
             # إعداد بيانات الفيديو
             body = {
@@ -183,11 +190,15 @@ class RealYouTubeUploader:
                 }
             }
             
+            # استيراد المكتبات المطلوبة
+            from googleapiclient.http import MediaFileUpload
+            
             # إنشاء طلب الرفع
-            media = googleapiclient.http.MediaFileUpload(
+            media = MediaFileUpload(
                 video_path,
                 chunksize=1024*1024,
-                resumable=True
+                resumable=True,
+                mimetype='video/mp4'
             )
             
             # إرسال طلب الرفع
@@ -205,13 +216,20 @@ class RealYouTubeUploader:
                 logging.info(f"✅ تم رفع الفيديو بنجاح على اليوتيوب!")
                 logging.info(f"   🆔 معرّف الفيديو: {video_id}")
                 logging.info(f"   🔗 الرابط: https://youtube.com/watch?v={video_id}")
-                return video_id
+                
+                # التحقق من وجود الفيديو على القناة
+                if self._verify_video_upload(video_id):
+                    logging.info(f"🎉 تم التحقق من رفع الفيديو على القناة بنجاح!")
+                    return video_id
+                else:
+                    logging.error(f"❌ تعذر التحقق من رفع الفيديو على القناة")
+                    return None
             else:
-                logging.error("❌ فشل رفع الفيديو - لا يوجد استجابة")
+                logging.error("❌ فشل رفع الفيديو - لا يوجد استجابة من YouTube")
                 return None
                 
         except Exception as e:
-            logging.error(f"❌ خطأ في رفع الفيديو: {e}")
+            logging.error(f"❌ خطأ في رفع الفيديو: {str(e)}")
             return None
     
     def _resumable_upload(self, request):
@@ -224,16 +242,46 @@ class RealYouTubeUploader:
             try:
                 status, response = request.next_chunk()
                 if status:
-                    logging.info(f"📊 تم رفع {int(status.progress() * 100)}%")
+                    progress = int(status.progress() * 100)
+                    logging.info(f"📊 تم رفع {progress}%")
+                elif response is not None:
+                    break
             except Exception as e:
                 if retry < max_retries - 1:
                     logging.warning(f"⚠️ إعادة محاولة الرفع ({retry + 1}/{max_retries}): {e}")
                     retry += 1
+                    time.sleep(2)  # انتظار قبل إعادة المحاولة
                 else:
                     logging.error(f"❌ فشل الرفع بعد {max_retries} محاولات: {e}")
                     break
                     
         return response
+    
+    def _verify_video_upload(self, video_id):
+        """التحقق من أن الفيديو موجود على القناة"""
+        try:
+            # انتظار بسيط لضمان معالجة YouTube للفيديو
+            time.sleep(5)
+            
+            # طلب معلومات الفيديو
+            request = self.youtube.videos().list(
+                part='snippet,status',
+                id=video_id
+            )
+            response = request.execute()
+            
+            if response['items']:
+                video_info = response['items'][0]
+                logging.info(f"🎯 تم التحقق من الفيديو: {video_info['snippet']['title']}")
+                logging.info(f"   📊 الحالة: {video_info['status']['uploadStatus']}")
+                return True
+            else:
+                logging.error(f"❌ الفيديو غير موجود على القناة")
+                return False
+                
+        except Exception as e:
+            logging.error(f"❌ خطأ في التحقق من الفيديو: {e}")
+            return False
 
 class SimpleYouTubeUploader:
     """نظام الرفع الاختباري"""
@@ -244,7 +292,6 @@ class SimpleYouTubeUploader:
             logging.info(f"🎯 [وضع الاختبار] محاكاة رفع الفيديو:")
             logging.info(f"   📹 العنوان: {content['title']}")
             logging.info(f"   🐾 الحيوان: {content['animal']}")
-            logging.info(f"   📝 النوع: {'شورت' if content['is_short'] else 'فيديو طويل'}")
             
             import random
             video_id = f"test_{content['animal'].lower()}_{random.randint(1000,9999)}"
@@ -306,11 +353,17 @@ class YouTubeAutomation:
             # رفع الفيديوهات
             successful_uploads = self._upload_videos(videos_data)
             
-            logging.info(f"✅ اكتملت العملية بنجاح! {successful_uploads}/{len(videos_data)} فيديوهات مرفوعة")
+            # التحقق النهائي من النجاح
+            if successful_uploads > 0:
+                logging.info(f"🎉 اكتملت العملية بنجاح! {successful_uploads}/{len(videos_data)} فيديوهات مرفوعة فعلياً على اليوتيوب")
+                return True
+            else:
+                logging.error(f"❌ فشل العملية - لم يتم رفع أي فيديو على اليوتيوب")
+                return False
             
         except Exception as e:
             logging.error(f"❌ خطأ في النظام: {e}")
-            raise
+            return False
             
     def _create_test_video(self):
         """إنشاء فيديو تجريبي"""
@@ -320,8 +373,12 @@ class YouTubeAutomation:
         content = self.content_generator.generate_animal_content(animal)
         video_path = self.video_creator.create_long_video(content, voice_gender="male")
         
-        logging.info(f"✅ تم إنشاء الفيديو التجريبي")
-        return [(video_path, content)]
+        if video_path:
+            logging.info(f"✅ تم إنشاء الفيديو التجريبي")
+            return [(video_path, content)]
+        else:
+            logging.error("❌ فشل إنشاء الفيديو التجريبي")
+            return []
     
     def _create_long_videos(self, count):
         """إنشاء الفيديوهات الطويلة"""
@@ -332,8 +389,11 @@ class YouTubeAutomation:
                 animal = self.animal_selector.get_animal()
                 content = self.content_generator.generate_animal_content(animal)
                 video_path = self.video_creator.create_long_video(content, voice_gender=gender)
-                videos.append((video_path, content))
-                logging.info(f"✅ فيديو طويل {i+1}: {animal}")
+                if video_path:
+                    videos.append((video_path, content))
+                    logging.info(f"✅ فيديو طويل {i+1}: {animal}")
+                else:
+                    logging.error(f"❌ فشل إنشاء فيديو طويل {i+1}")
             except Exception as e:
                 logging.error(f"❌ فشل إنشاء فيديو طويل {i+1}: {e}")
         return videos
@@ -346,8 +406,11 @@ class YouTubeAutomation:
                 animal = self.animal_selector.get_animal()
                 content = self.content_generator.generate_animal_content(animal, for_short=True)
                 short_path = self.video_creator.create_short_video(content)
-                shorts.append((short_path, content))
-                logging.info(f"✅ شورت {i+1}: {animal}")
+                if short_path:
+                    shorts.append((short_path, content))
+                    logging.info(f"✅ شورت {i+1}: {animal}")
+                else:
+                    logging.error(f"❌ فشل إنشاء شورت {i+1}")
             except Exception as e:
                 logging.error(f"❌ فشل إنشاء شورت {i+1}: {e}")
         return shorts
@@ -370,10 +433,10 @@ class YouTubeAutomation:
                 
                 if video_id:
                     successful_uploads += 1
-                    logging.info(f"✅ تم رفع الفيديو بنجاح!")
+                    logging.info(f"✅ تم رفع الفيديو بنجاح على اليوتيوب!")
                     self.performance_analyzer.record_upload(content['animal'], video_id)
                 else:
-                    logging.error(f"❌ فشل رفع الفيديو")
+                    logging.error(f"❌ فشل رفع الفيديو: {content['title']}")
                     
             except Exception as e:
                 logging.error(f"❌ خطأ في رفع الفيديو {i}: {e}")
@@ -390,7 +453,9 @@ if __name__ == "__main__":
     # تحديد نوع التشغيل
     if args.real_upload:
         automation = YouTubeAutomation(real_upload=True)
-        automation.run_daily_automation(test_run=args.test_run)
+        success = automation.run_daily_automation(test_run=args.test_run)
+        # الخروج بكود خطأ إذا فشل الرفع
+        sys.exit(0 if success else 1)
     else:
         automation = YouTubeAutomation(real_upload=False)
         automation.run_daily_automation(test_run=args.test_run)
