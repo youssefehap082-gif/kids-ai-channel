@@ -18,16 +18,54 @@ jobs:
       with:
         python-version: '3.10'
         
-    - name: Install dependencies
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+        sudo apt-get install -y python3-pip
+        sudo apt-get install -y libimage-exiftool-perl
+        python -m pip install --upgrade pip
+        
+    - name: Install Python dependencies
       run: |
         pip install -r requirements.txt
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg imagemagick
-        sudo apt-get install -y python3-pip
+        # تثبيت إصدار متوافق من moviepy إذا كانت هناك مشاكل
+        pip install moviepy --upgrade
+        pip install pillow --upgrade
         
     - name: Create necessary directories
       run: |
         mkdir -p logs outputs/videos outputs/shorts outputs/temp data assets/music
+        mkdir -p scripts
+        
+    - name: Create basic data files
+      run: |
+        cat > data/animal_database.json << 'EOF'
+        {
+          "mammals": ["Lion", "Elephant", "Tiger", "Giraffe", "Wolf", "Bear", "Kangaroo", "Panda", "Zebra", "Fox", "Deer", "Horse", "Donkey", "Rabbit", "Raccoon"],
+          "reptiles": ["Cobra", "Python", "Chameleon", "Komodo Dragon", "Alligator", "Turtle", "Crocodile", "Iguana", "Gecko", "Snake"],
+          "birds": ["Eagle", "Parrot", "Penguin", "Owl", "Flamingo", "Peacock", "Hawk", "Swan", "Pigeon", "Sparrow"],
+          "fish": ["Shark", "Dolphin", "Clownfish", "Goldfish", "Piranha", "Manta Ray", "Whale", "Octopus", "Squid", "Jellyfish"],
+          "insects": ["Butterfly", "Bee", "Ant", "Spider", "Dragonfly", "Ladybug", "Grasshopper", "Beetle", "Mosquito", "Fly"],
+          "others": ["Hedgehog", "Squirrel", "Bat", "Frog", "Toad", "Salamander", "Newt"]
+        }
+        EOF
+        
+        cat > data/used_animals.json << 'EOF'
+        []
+        EOF
+        
+        cat > data/performance_data.json << 'EOF'
+        {
+          "upload_history": [],
+          "content_strategy": {
+            "successful_animals": [],
+            "top_keywords": [],
+            "optimal_video_length": 300,
+            "best_upload_times": ["12:00", "18:00", "20:00"]
+          }
+        }
+        EOF
         
     - name: Run automation system
       env:
@@ -41,13 +79,26 @@ jobs:
         YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+        TEST_MODE: "true"
       run: |
         python scripts/main.py --test-run
         
-    - name: Upload logs on failure
-      if: failure()
+    - name: Show logs
+      if: always()
+      run: |
+        echo "=== Log File Contents ==="
+        cat logs/automation.log || echo "No log file found"
+        echo "=== Output Directory ==="
+        ls -la outputs/ || echo "No outputs directory"
+        ls -la outputs/videos/ || echo "No videos directory"
+        ls -la outputs/shorts/ || echo "No shorts directory"
+        
+    - name: Upload logs and outputs
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: error-logs
-        path: logs/
+        name: automation-results
+        path: |
+          logs/
+          outputs/
         retention-days: 1
