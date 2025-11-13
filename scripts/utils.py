@@ -45,17 +45,3 @@ def load_config():
         "target_languages": ["en", "es", "fr", "de", "ar"],
         "test_mode": True
     }
-
-def cleanup_temp_files():
-    """تنظيف الملفات المؤقتة"""
-    temp_dirs = ["outputs/temp", "logs/temp"]
-    for temp_dir in temp_dirs:
-        if os.path.exists(temp_dir):
-            for file in os.listdir(temp_dir):
-                file_path = os.path.join(temp_dir, file)
-                try:
-                    if os.path.isfile(file_path):
-                        os.unlink(file_path)
-                        logging.info(f"تم حذف: {file_path}")
-                except Exception as e:
-                    logging.error(f"خطأ في حذف {file_path}: {e}")
