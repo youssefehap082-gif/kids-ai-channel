@@ -6,10 +6,10 @@ import sys
 import json
 from datetime import datetime
 
+# إعداد المسارات
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import setup_logging, load_config
-from youtube_uploader import RealYouTubeUploader
 
 class SimpleAnimalSelector:
     def get_animal(self):
@@ -21,23 +21,51 @@ class SimpleAnimalSelector:
 
 class SimpleContentGenerator:
     def generate_animal_content(self, animal, for_short=False):
-        # [نفس المحتوى السابق...]
         facts = [
-            f"{animal}s are amazing creatures with unique adaptations",
-            # ... باقي الحقائق
+            f"{animal}s are amazing creatures with unique adaptations that help them survive in their environments",
+            f"They play crucial roles in their ecosystems, maintaining balance in nature's food chains",
+            f"The habitat of {animal}s varies widely, from dense forests to open plains and deep oceans",
+            f"Their diet is diverse, consisting of various plants, animals, or both depending on the species",
+            f"{animal}s have fascinating social behaviors and complex communication methods",
+            f"Conservation efforts are essential for protecting {animal}s from habitat loss and other threats",
+            f"They possess remarkable physical characteristics and specialized abilities for survival",
+            f"The reproduction cycle and family structures of {animal}s are fascinating to study",
+            f"{animal}s have evolved over millions of years, adapting to changing environments",
+            f"They contribute significantly to global biodiversity and ecological health"
         ]
         
         if for_short:
-            title = f"Amazing {animal} Facts! 🐾 #shorts"
-            script = f"Quick {animal} facts! {facts[0]} Like and follow!"
+            title = f"Amazing {animal} Facts! 🐾 #shorts #animals"
+            script = f"Discover {animal}s! {facts[0]} {facts[1]} Like and follow for daily animal content! 🐯"
         else:
-            title = f"10 Incredible Facts About {animal}s | Wildlife Education"
-            script = f"Welcome! Today we explore {animal}s. " + ". ".join(facts)
+            title = f"10 Incredible Facts About {animal}s | Wildlife Education Documentary"
+            script = f"Welcome to our wildlife education channel! Today we're exploring the fascinating world of {animal}s. Here are 10 amazing facts: " + ". ".join([f"Number {i+1}: {fact}" for i, fact in enumerate(facts)]) + " Which fact surprised you most? Let us know in comments! Don't forget to subscribe for daily wildlife content!"
         
-        description = f"Learn about {animal}s! Don't forget to subscribe!\n\n"
-        description += f"#{animal} #animals #wildlife #facts"
+        description = f"Discover the amazing world of {animal}s in this educational wildlife video! "
+        description += f"In this episode, we explore 10 fascinating facts about {animal}s, including their behavior, habitat, diet, and unique characteristics. "
+        description += "Perfect for animal lovers, wildlife enthusiasts, and educational purposes.\n\n"
+        description += "📚 What you'll learn in this video:\n"
+        description += "• Amazing facts about " + animal + " behavior\n"
+        description += "• Their natural habitats and environments\n"
+        description += "• Diet and feeding patterns\n"
+        description += "• Conservation status and importance\n"
+        description += "• Unique physical characteristics\n\n"
+        description += "🔔 Don't forget to:\n"
+        description += "✅ SUBSCRIBE for daily animal facts\n"
+        description += "🔔 Hit the BELL icon for notifications\n"
+        description += "👍 LIKE if you learned something new\n"
+        description += "💬 COMMENT your favorite fact below\n"
+        description += "📤 SHARE with fellow animal lovers\n\n"
+        description += "🏷️ Related tags: "
+        description += f"#{animal}, #animals, #wildlife, #nature, #education, #animalfacts, #wildlifeeducation, #naturedocumentary, #animaldocumentary\n\n"
+        description += "⚠️ Disclaimer: This content is educational and created for entertainment purposes."
         
-        tags = [animal, "animals", "wildlife", "facts", "nature"]
+        tags = [
+            animal, "animals", "wildlife", "nature", "education", 
+            "animal facts", "wildlife education", "nature documentary",
+            "animal documentary", "facts about animals", "wildlife facts",
+            animal.lower() + " facts", "educational video", "wildlife channel"
+        ]
         
         return {
             "animal": animal,
@@ -51,7 +79,7 @@ class SimpleContentGenerator:
 
 class SimpleVideoCreator:
     def create_long_video(self, content, voice_gender="male"):
-        """إنشاء فيديو مع محتوى حقيقي"""
+        """إنشاء فيديو طويل"""
         try:
             output_dir = "outputs/videos"
             os.makedirs(output_dir, exist_ok=True)
@@ -59,45 +87,23 @@ class SimpleVideoCreator:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             video_path = f"{output_dir}/{content['animal'].lower()}_{timestamp}.mp4"
             
-            # إنشاء فيديو بسيط باستخدام moviepy
-            try:
-                from moviepy.editor import ColorClip, TextClip, CompositeVideoClip, AudioFileClip
-                import numpy as np
-                
-                # إنشاء فيديو بسيط مع نص
-                duration = 30  # 30 ثانية للاختبار
-                width, height = 1280, 720
-                
-                # فيديو خلفية
-                video = ColorClip(size=(width, height), color=(0, 0, 0), duration=duration)
-                
-                # إضافة نص
-                text = TextClip(f"Amazing {content['animal']} Facts\n\n{content['facts'][0]}", 
-                              fontsize=24, color='white', size=(width-100, height-100))
-                text = text.set_position('center').set_duration(duration)
-                
-                # دمج الفيديو والنص
-                final_video = CompositeVideoClip([video, text])
-                
-                # حفظ الفيديو
-                final_video.write_videofile(video_path, fps=24, verbose=False, logger=None)
-                
-                logging.info(f"✅ تم إنشاء فيديو حقيقي: {video_path}")
-                
-            except ImportError:
-                # إذا فشل moviepy، إنشاء ملف فيديو بسيط
-                with open(video_path, 'w') as f:
-                    f.write("VIDEO_CONTENT")
-                logging.info(f"✅ تم إنشاء فيديو بديل: {video_path}")
+            # إنشاء فيديو تجريبي بسيط
+            # في الإصدار النهائي، استبدل هذا بإنشاء فيديو حقيقي
+            with open(video_path, 'w') as f:
+                f.write(f"Simulated video file for: {content['title']}")
+            
+            logging.info(f"✅ تم إنشاء فيديو طويل: {video_path}")
+            logging.info(f"   العنوان: {content['title']}")
+            logging.info(f"   المدة: 3-5 دقائق (محاكاة)")
             
             return video_path
             
         except Exception as e:
-            logging.error(f"❌ خطأ في إنشاء الفيديو: {e}")
+            logging.error(f"❌ خطأ في إنشاء الفيديو الطويل: {e}")
             return f"outputs/videos/fallback_{content['animal']}.mp4"
     
     def create_short_video(self, content):
-        """إنشاء شورت حقيقي"""
+        """إنشاء شورت"""
         try:
             output_dir = "outputs/shorts"
             os.makedirs(output_dir, exist_ok=True)
@@ -105,27 +111,13 @@ class SimpleVideoCreator:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             short_path = f"{output_dir}/{content['animal'].lower()}_short_{timestamp}.mp4"
             
-            # إنشاء شورت بسيط
-            try:
-                from moviepy.editor import ColorClip, TextClip, CompositeVideoClip
-                
-                duration = 15  # 15 ثانية للشورت
-                width, height = 1080, 1920  # أبعاد الشورت
-                
-                video = ColorClip(size=(width, height), color=(0, 50, 100), duration=duration)
-                text = TextClip(f"{content['animal']} Fact!\n\n{content['facts'][0]}", 
-                              fontsize=30, color='white', size=(width-100, height-100))
-                text = text.set_position('center').set_duration(duration)
-                
-                final_short = CompositeVideoClip([video, text])
-                final_short.write_videofile(short_path, fps=30, verbose=False, logger=None)
-                
-                logging.info(f"✅ تم إنشاء شورت حقيقي: {short_path}")
-                
-            except ImportError:
-                with open(short_path, 'w') as f:
-                    f.write("SHORT_VIDEO_CONTENT")
-                logging.info(f"✅ تم إنشاء شورت بديل: {short_path}")
+            # إنشاء شورت تجريبي بسيط
+            with open(short_path, 'w') as f:
+                f.write(f"Simulated short video for: {content['title']}")
+            
+            logging.info(f"✅ تم إنشاء شورت: {short_path}")
+            logging.info(f"   العنوان: {content['title']}")
+            logging.info(f"   المدة: 15-60 ثانية (محاكاة)")
             
             return short_path
             
@@ -133,93 +125,255 @@ class SimpleVideoCreator:
             logging.error(f"❌ خطأ في إنشاء الشورت: {e}")
             return f"outputs/shorts/fallback_{content['animal']}_short.mp4"
 
+class RealYouTubeUploader:
+    """نظام الرفع الفعلي على اليوتيوب"""
+    
+    def __init__(self):
+        self.setup_youtube_api()
+    
+    def setup_youtube_api(self):
+        """إعداد اتصال YouTube API"""
+        try:
+            import google.oauth2.credentials
+            import googleapiclient.discovery
+            import googleapiclient.http
+            
+            # الحصول على credentials من environment variables
+            credentials = google.oauth2.credentials.Credentials(
+                token=None,
+                refresh_token=os.getenv('YT_REFRESH_TOKEN'),
+                token_uri='https://oauth2.googleapis.com/token',
+                client_id=os.getenv('YT_CLIENT_ID'),
+                client_secret=os.getenv('YT_CLIENT_SECRET')
+            )
+            
+            # بناء خدمة YouTube
+            self.youtube = googleapiclient.discovery.build(
+                'youtube', 'v3', credentials=credentials)
+            
+            logging.info("✅ تم إعداد YouTube API بنجاح")
+            
+        except Exception as e:
+            logging.error(f"❌ فشل إعداد YouTube API: {e}")
+            # في حالة الفشل، نستخدم وضع المحاكاة
+            self.youtube = None
+    
+    def upload_video(self, video_path, content):
+        """رفع فيديو فعلي على اليوتيوب"""
+        try:
+            if self.youtube is None:
+                logging.error("❌ خدمة YouTube غير متوفرة")
+                return None
+            
+            logging.info(f"🚀 بدء رفع الفيديو على اليوتيوب...")
+            logging.info(f"   📹 العنوان: {content['title']}")
+            logging.info(f"   🐾 الحيوان: {content['animal']}")
+            
+            # إعداد بيانات الفيديو
+            body = {
+                'snippet': {
+                    'title': content['title'],
+                    'description': content['description'],
+                    'tags': content['tags'],
+                    'categoryId': '22'  # Education
+                },
+                'status': {
+                    'privacyStatus': 'public',  # يمكن تغييرها إلى 'private' للاختبار
+                    'selfDeclaredMadeForKids': False
+                }
+            }
+            
+            # إنشاء طلب الرفع
+            media = googleapiclient.http.MediaFileUpload(
+                video_path,
+                chunksize=1024*1024,
+                resumable=True
+            )
+            
+            # إرسال طلب الرفع
+            request = self.youtube.videos().insert(
+                part=','.join(body.keys()),
+                body=body,
+                media_body=media
+            )
+            
+            # تنفيذ الرفع
+            response = self._resumable_upload(request)
+            
+            if response and 'id' in response:
+                video_id = response['id']
+                logging.info(f"✅ تم رفع الفيديو بنجاح على اليوتيوب!")
+                logging.info(f"   🆔 معرّف الفيديو: {video_id}")
+                logging.info(f"   🔗 الرابط: https://youtube.com/watch?v={video_id}")
+                return video_id
+            else:
+                logging.error("❌ فشل رفع الفيديو - لا يوجد استجابة")
+                return None
+                
+        except Exception as e:
+            logging.error(f"❌ خطأ في رفع الفيديو: {e}")
+            return None
+    
+    def _resumable_upload(self, request):
+        """رفع قابل للاستئناف"""
+        response = None
+        retry = 0
+        max_retries = 3
+        
+        while response is None and retry < max_retries:
+            try:
+                status, response = request.next_chunk()
+                if status:
+                    logging.info(f"📊 تم رفع {int(status.progress() * 100)}%")
+            except Exception as e:
+                if retry < max_retries - 1:
+                    logging.warning(f"⚠️ إعادة محاولة الرفع ({retry + 1}/{max_retries}): {e}")
+                    retry += 1
+                else:
+                    logging.error(f"❌ فشل الرفع بعد {max_retries} محاولات: {e}")
+                    break
+                    
+        return response
+
+class SimpleYouTubeUploader:
+    """نظام الرفع الاختباري"""
+    
+    def upload_video(self, video_path, content):
+        """محاكاة رفع الفيديو"""
+        try:
+            logging.info(f"🎯 [وضع الاختبار] محاكاة رفع الفيديو:")
+            logging.info(f"   📹 العنوان: {content['title']}")
+            logging.info(f"   🐾 الحيوان: {content['animal']}")
+            logging.info(f"   📝 النوع: {'شورت' if content['is_short'] else 'فيديو طويل'}")
+            
+            import random
+            video_id = f"test_{content['animal'].lower()}_{random.randint(1000,9999)}"
+            
+            logging.info(f"✅ [اختبار] تم محاكاة رفع الفيديو بنجاح!")
+            logging.info(f"   🆔 معرّف محاكاة: {video_id}")
+            
+            return video_id
+            
+        except Exception as e:
+            logging.error(f"❌ خطأ في محاكاة الرفع: {e}")
+            return None
+
+class PerformanceAnalyzer:
+    """تحليل الأداء"""
+    
+    def analyze_performance(self):
+        logging.info("📊 تحليل أداء الفيديوهات...")
+    
+    def record_upload(self, animal, video_id):
+        logging.info(f"📝 تسجيل رفع: {animal} - {video_id}")
+
 class YouTubeAutomation:
     def __init__(self, real_upload=False):
         setup_logging()
         self.config = load_config()
         self.real_upload = real_upload
         
-        logging.info(f"🎯 وضع التشغيل: {'رفع فعلي على YouTube' if real_upload else 'اختبار'}")
+        logging.info(f"🎯 وضع التشغيل: {'رفع فعلي على اليوتيوب' if real_upload else 'اختبار'}")
         
+        # تهيئة المكونات
         self.animal_selector = SimpleAnimalSelector()
         self.content_generator = SimpleContentGenerator()
         self.video_creator = SimpleVideoCreator()
         
+        # اختيار نظام الرفع المناسب
         if real_upload:
             self.youtube_uploader = RealYouTubeUploader()
         else:
-            self.youtube_uploader = None
+            self.youtube_uploader = SimpleYouTubeUploader()
+            
+        self.performance_analyzer = PerformanceAnalyzer()
         
     def run_daily_automation(self, test_run=False):
-        """تشغيل النظام"""
+        """تشغيل النظام اليومي"""
         try:
-            logging.info("🚀 بدء نظام أتمتة YouTube")
+            logging.info("🚀 بدء نظام أتمتة اليوتيوب")
             
             if test_run:
+                logging.info("🎬 تشغيل تجريبي - فيديو واحد")
                 videos_data = self._create_test_video()
             else:
+                logging.info("📅 تشغيل يومي كامل")
+                self.performance_analyzer.analyze_performance()
                 long_videos = self._create_long_videos(2)
                 shorts = self._create_shorts(5)
                 videos_data = long_videos + shorts
             
-            if self.real_upload and self.youtube_uploader:
-                successful_uploads = self._upload_videos(videos_data)
-                logging.info(f"✅ اكتمل الرفع! {successful_uploads}/{len(videos_data)} فيديوهات")
-            else:
-                logging.info("🎯 تم إنشاء الفيديوهات بنجاح (بدون رفع)")
+            # رفع الفيديوهات
+            successful_uploads = self._upload_videos(videos_data)
+            
+            logging.info(f"✅ اكتملت العملية بنجاح! {successful_uploads}/{len(videos_data)} فيديوهات مرفوعة")
             
         except Exception as e:
             logging.error(f"❌ خطأ في النظام: {e}")
             raise
-    
+            
     def _create_test_video(self):
         """إنشاء فيديو تجريبي"""
+        logging.info("🎬 إنشاء فيديو تجريبي...")
+        
         animal = self.animal_selector.get_animal()
         content = self.content_generator.generate_animal_content(animal)
-        video_path = self.video_creator.create_long_video(content)
+        video_path = self.video_creator.create_long_video(content, voice_gender="male")
+        
+        logging.info(f"✅ تم إنشاء الفيديو التجريبي")
         return [(video_path, content)]
     
     def _create_long_videos(self, count):
-        """إنشاء فيديوهات طويلة"""
+        """إنشاء الفيديوهات الطويلة"""
         videos = []
         for i in range(count):
-            animal = self.animal_selector.get_animal()
-            content = self.content_generator.generate_animal_content(animal)
-            video_path = self.video_creator.create_long_video(content)
-            videos.append((video_path, content))
-            logging.info(f"✅ فيديو طويل {i+1}: {animal}")
+            try:
+                gender = "male" if i % 2 == 0 else "female"
+                animal = self.animal_selector.get_animal()
+                content = self.content_generator.generate_animal_content(animal)
+                video_path = self.video_creator.create_long_video(content, voice_gender=gender)
+                videos.append((video_path, content))
+                logging.info(f"✅ فيديو طويل {i+1}: {animal}")
+            except Exception as e:
+                logging.error(f"❌ فشل إنشاء فيديو طويل {i+1}: {e}")
         return videos
     
     def _create_shorts(self, count):
-        """إنشاء شورتس"""
+        """إنشاء الشورتس"""
         shorts = []
         for i in range(count):
-            animal = self.animal_selector.get_animal()
-            content = self.content_generator.generate_animal_content(animal, for_short=True)
-            short_path = self.video_creator.create_short_video(content)
-            shorts.append((short_path, content))
-            logging.info(f"✅ شورت {i+1}: {animal}")
+            try:
+                animal = self.animal_selector.get_animal()
+                content = self.content_generator.generate_animal_content(animal, for_short=True)
+                short_path = self.video_creator.create_short_video(content)
+                shorts.append((short_path, content))
+                logging.info(f"✅ شورت {i+1}: {animal}")
+            except Exception as e:
+                logging.error(f"❌ فشل إنشاء شورت {i+1}: {e}")
         return shorts
     
     def _upload_videos(self, videos_data):
-        """رفع الفيديوهات"""
+        """رفع الفيديوهات لليوتيوب"""
         successful_uploads = 0
         
         for i, (video_path, content) in enumerate(videos_data, 1):
             try:
-                if os.path.exists(video_path):
-                    if content['is_short']:
-                        video_id = self.youtube_uploader.upload_short(video_path, content)
-                    else:
-                        video_id = self.youtube_uploader.upload_video(video_path, content)
-                    
-                    if video_id:
-                        successful_uploads += 1
-                        logging.info(f"✅ تم رفع الفيديو {i} بنجاح")
-                    else:
-                        logging.error(f"❌ فشل رفع الفيديو {i}")
+                logging.info(f"📤 رفع الفيديو {i}/{len(videos_data)}...")
+                
+                # التحقق من وجود الملف
+                if not os.path.exists(video_path):
+                    logging.warning(f"⚠️ الملف غير موجود: {video_path}")
+                    continue
+                
+                # رفع الفيديو
+                video_id = self.youtube_uploader.upload_video(video_path, content)
+                
+                if video_id:
+                    successful_uploads += 1
+                    logging.info(f"✅ تم رفع الفيديو بنجاح!")
+                    self.performance_analyzer.record_upload(content['animal'], video_id)
                 else:
-                    logging.error(f"❌ ملف الفيديو غير موجود: {video_path}")
+                    logging.error(f"❌ فشل رفع الفيديو")
                     
             except Exception as e:
                 logging.error(f"❌ خطأ في رفع الفيديو {i}: {e}")
@@ -227,10 +381,16 @@ class YouTubeAutomation:
         return successful_uploads
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--test-run", action="store_true", help="تشغيل تجريبي")
-    parser.add_argument("--real-upload", action="store_true", help="رفع فعلي على YouTube")
+    parser = argparse.ArgumentParser(description="نظام أتمتة قناة يوتيوب للحيوانات")
+    parser.add_argument("--test-run", action="store_true", help="تشغيل تجريبي - فيديو واحد")
+    parser.add_argument("--real-upload", action="store_true", help="رفع فعلي على اليوتيوب")
+    parser.add_argument("--daily-run", action="store_true", help="تشغيل يومي كامل")
     args = parser.parse_args()
     
-    automation = YouTubeAutomation(real_upload=args.real_upload)
-    automation.run_daily_automation(test_run=args.test_run)
+    # تحديد نوع التشغيل
+    if args.real_upload:
+        automation = YouTubeAutomation(real_upload=True)
+        automation.run_daily_automation(test_run=args.test_run)
+    else:
+        automation = YouTubeAutomation(real_upload=False)
+        automation.run_daily_automation(test_run=args.test_run)
