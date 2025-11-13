@@ -1,22 +1,14 @@
 import os
 import json
 import logging
-
-try:
-    from utils import load_json, save_json
-except ImportError:
-    # استيراد بديل
-    import json
-    import os
+from utils import load_json
 
 class ContentGenerator:
     def __init__(self):
-        self.performance_file = "data/performance_data.json"
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        logging.info("تم تهيئة ContentGenerator")
         
     def generate_animal_content(self, animal, for_short=False):
-        """إنشاء محتوى عن الحيوان"""
+        """إنشاء محتوى متكامل عن الحيوان"""
         try:
             # الحصول على حقائق عن الحيوان
             facts = self._get_animal_facts(animal)
@@ -27,7 +19,7 @@ class ContentGenerator:
             else:
                 script = self._generate_long_script(animal, facts)
             
-            # إنشاء العناوين والوصف
+            # إنشاء محتوى SEO محسن
             title, description, tags = self._generate_seo_content(animal, for_short)
             
             content = {
@@ -40,110 +32,130 @@ class ContentGenerator:
                 "is_short": for_short
             }
             
-            logging.info(f"تم إنشاء محتوى لـ {animal}")
+            logging.info(f"✅ تم إنشاء محتوى لـ {animal}")
             return content
             
         except Exception as e:
-            logging.error(f"خطأ في إنشاء المحتوى: {e}")
+            logging.error(f"❌ خطأ في إنشاء المحتوى: {e}")
             return self._get_fallback_content(animal, for_short)
     
     def _get_animal_facts(self, animal):
-        """الحصول على 10 حقائق عن الحيوان"""
+        """الحصول على 10 حقائق مميزة عن الحيوان"""
         try:
-            # إذا كان هناك مفتاح OpenAI، استخدمه
             if self.openai_api_key:
-                try:
-                    import openai
-                    openai_client = openai.OpenAI(api_key=self.openai_api_key)
-                    
-                    response = openai_client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[{
-                            "role": "user",
-                            "content": f"Generate 10 interesting facts about {animal}. Return as JSON array."
-                        }]
-                    )
-                    
-                    facts_text = response.choices[0].message.content
-                    facts = json.loads(facts_text)
-                    return facts[:10]
-                    
-                except Exception as e:
-                    logging.warning(f"OpenAI failed, using default facts: {e}")
-            
-            # استخدام الحقائق الافتراضية
-            return self._get_default_facts(animal)
-            
+                import openai
+                client = openai.OpenAI(api_key=self.openai_api_key)
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{
+                        "role": "user",
+                        "content": f"""Generate 10 amazing and educational facts about {animal} that will surprise viewers.
+                        Make them engaging, viral-worthy, and perfect for YouTube shorts.
+                        Return as JSON array of strings."""
+                    }],
+                    temperature=0.8
+                )
+                
+                facts_text = response.choices[0].message.content
+                facts = json.loads(facts_text)
+                return facts[:10]
+                
         except Exception as e:
-            logging.error(f"Error getting facts: {e}")
-            return self._get_default_facts(animal)
+            logging.warning(f"OpenAI غير متوفر: {e}")
+        
+        # حقائق افتراضية
+        return self._get_default_facts(animal)
     
     def _generate_long_script(self, animal, facts):
         """إنشاء سيناريو للفيديو الطويل"""
-        script_intro = f"Welcome to our channel! Today we're exploring the fascinating world of {animal}. "
-        script_body = "Here are 10 amazing facts you probably didn't know: "
+        script = f"Welcome to our wildlife exploration! Today, we dive into the incredible world of {animal}s. "
+        script += "Get ready to be amazed by these fascinating facts: "
         
         for i, fact in enumerate(facts, 1):
-            script_body += f"{i}. {fact}. "
+            script += f"Fact {i}: {fact}. "
         
-        script_outro = "Which fact surprised you the most? Let us know in the comments! Don't forget to subscribe and hit the bell for more amazing animal content!"
+        script += "Which fact surprised you the most? Let us know in the comments! "
+        script += "If you enjoyed this journey into the animal kingdom, don't forget to subscribe and hit the bell for more amazing wildlife content every single day!"
         
-        return script_intro + script_body + script_outro
+        return script
     
     def _generate_short_script(self, animal, facts):
         """إنشاء سيناريو للشورت (مختصر)"""
-        return f"Amazing {animal} facts! {facts[0]} {facts[1]} Follow for more animal content! 🐾"
+        return f"Discover {animal}s! {facts[0]} {facts[1]} Follow for daily animal facts! 🐾"
     
     def _generate_seo_content(self, animal, for_short):
-        """إنشاء محتوى محسن لمحركات البحث"""
+        """إنشاء محتوى SEO محسن"""
         try:
             if self.openai_api_key:
-                try:
-                    import openai
-                    openai_client = openai.OpenAI(api_key=self.openai_api_key)
-                    
-                    response = openai_client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[{
-                            "role": "user",
-                            "content": f"""Create YouTube SEO content for {animal}.
-                            {'Short video' if for_short else 'Long video'}.
-                            Return JSON: {{"title": "...", "description": "...", "tags": ["..."]}}"""
-                        }]
-                    )
-                    
-                    content = json.loads(response.choices[0].message.content)
-                    return content["title"], content["description"], content["tags"]
-                    
-                except Exception as e:
-                    logging.warning(f"OpenAI SEO failed: {e}")
-            
-            return self._get_fallback_seo(animal, for_short)
-            
+                import openai
+                client = openai.OpenAI(api_key=self.openai_api_key)
+                
+                video_type = "YouTube Short" if for_short else "YouTube video"
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{
+                        "role": "user",
+                        "content": f"""Create viral YouTube SEO content for a {video_type} about {animal}.
+                        Make it engaging, clickable, and optimized for maximum views.
+                        Return JSON: {{"title": "...", "description": "...", "tags": ["..."]}}
+                        For shorts, include #shorts in title."""
+                    }],
+                    temperature=0.9
+                )
+                
+                content = json.loads(response.choices[0].message.content)
+                return content["title"], content["description"], content["tags"]
+                
         except Exception as e:
-            logging.error(f"SEO content error: {e}")
-            return self._get_fallback_seo(animal, for_short)
+            logging.warning(f"OpenAI SEO غير متوفر: {e}")
+        
+        return self._get_fallback_seo(animal, for_short)
     
     def _get_default_facts(self, animal):
-        """حقائق افتراضية إذا فشل الذكاء الاصطناعي"""
+        """حقائق افتراضية"""
         return [
-            f"The {animal} is a fascinating creature with unique characteristics",
-            f"{animal}s play important roles in their ecosystems",
-            f"They have adapted to survive in their specific environments",
-            f"The diet of {animal}s varies depending on species and habitat",
-            f"{animal}s have interesting social behaviors and communication methods",
-            f"These animals face various conservation challenges worldwide",
-            f"The physical characteristics of {animal}s are remarkable",
-            f"Their reproduction and life cycle are fascinating to study",
-            f"{animal}s have existed on Earth for millions of years",
-            f"These creatures are important to maintaining biodiversity"
+            f"{animal}s have incredible adaptations that help them survive in their environments",
+            f"They play vital roles in maintaining ecosystem balance",
+            f"Their unique behaviors and social structures are fascinating to study",
+            f"{animal}s have evolved over millions of years to perfection",
+            f"Conservation efforts are crucial for protecting these amazing creatures",
+            f"Their physical characteristics are perfectly suited to their lifestyle",
+            f"{animal}s communicate in complex ways we're still understanding",
+            f"Their diet and hunting strategies are remarkably efficient",
+            f"Baby {animal}s have adorable and interesting development stages",
+            f"These animals face important challenges in the modern world"
         ]
+    
+    def _get_fallback_seo(self, animal, for_short):
+        """محتوى SEO افتراضي"""
+        if for_short:
+            title = f"🤯 {animal} Facts That Will Blow Your Mind! #shorts #animals"
+        else:
+            title = f"10 Incredible {animal} Facts You Won't Believe! | Wildlife Documentary"
+        
+        description = f"Discover the amazing world of {animal}s! In this video, we explore fascinating facts about {animal} behavior, habitat, and unique characteristics that will surprise you.\n\n"
+        description += "🔔 Subscribe for daily animal facts: https://www.youtube.com/@AnimalFactsDaily\n"
+        description += "👍 Like this video if you learned something new!\n"
+        description += "💬 Comment which fact surprised you most!\n\n"
+        description += "📱 Follow us for more wildlife content!\n\n"
+        description += "#animals #wildlife #nature #education #animalfacts"
+        
+        tags = [
+            animal, f"{animal} facts", "animals", "wildlife", "nature", 
+            "animal facts", "wildlife documentary", "nature documentary",
+            "educational video", "animal education", "wildlife education",
+            "amazing animals", "animal behavior", "wildlife facts"
+        ]
+        
+        return title, description, tags
     
     def _get_fallback_content(self, animal, for_short):
         """محتوى احتياطي كامل"""
         facts = self._get_default_facts(animal)
         title, description, tags = self._get_fallback_seo(animal, for_short)
-        script = self._generate_long_script(animal, facts) if not for_short else self._generate_short_script(animal, facts)
+        script = self._generate_short_script(animal, facts) if for_short else self._generate_long_script(animal, facts)
         
         return {
             "animal": animal,
@@ -154,19 +166,3 @@ class ContentGenerator:
             "tags": tags,
             "is_short": for_short
         }
-    
-    def _get_fallback_seo(self, animal, for_short):
-        """محتوى SEO افتراضي"""
-        if for_short:
-            title = f"Amazing {animal} Facts! 🐾 #shorts"
-        else:
-            title = f"10 Incredible Facts About {animal}s You Won't Believe!"
-        
-        description = f"Learn amazing facts about {animal}s in this educational video. "
-        description += f"Discover fascinating information about {animal} behavior, habitat, and characteristics. "
-        description += "Don't forget to subscribe and hit the bell for more animal content!\n\n"
-        description += f"#{animal} #animals #wildlife #education #nature #facts"
-        
-        tags = [animal, "animals", "wildlife", "facts", "education", "nature", "animal facts", "wildlife education"]
-        
-        return title, description, tags
