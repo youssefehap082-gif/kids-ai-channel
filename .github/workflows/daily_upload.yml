@@ -48,7 +48,6 @@ jobs:
         
     - name: Create basic data files
       run: |
-        # إنشاء ملف الحيوانات
         cat > data/animal_database.json << 'EOF'
         {
           "mammals": ["Lion", "Elephant", "Tiger", "Giraffe", "Wolf", "Bear", "Kangaroo", "Panda", "Zebra", "Fox", "Deer", "Horse", "Donkey", "Rabbit", "Raccoon"],
@@ -60,12 +59,10 @@ jobs:
         }
         EOF
         
-        # إنشاء ملف الحيوانات المستخدمة
         cat > data/used_animals.json << 'EOF'
         []
         EOF
         
-        # إنشاء ملف الأداء
         cat > data/performance_data.json << 'EOF'
         {
           "upload_history": [],
@@ -96,7 +93,7 @@ jobs:
           python scripts/main.py --real-upload --daily-run
           
           # التحقق من وجود فيديوهات مرفوعة فعلياً
-          if grep -q "✅ تم رفع الفيديو بنجاح على اليوتيوب" logs/automation.log; then
+          if grep -q "🎉 تم رفع الفيديو بنجاح على اليوتيوب" logs/automation.log; then
             echo "🎉 تم الرفع الفعلي على اليوتيوب بنجاح!"
             echo "success=true" >> $GITHUB_OUTPUT
           else
@@ -115,8 +112,11 @@ jobs:
       run: |
         echo "=== نتائج الرفع على اليوتيوب ==="
         if [ -f "logs/automation.log" ]; then
-          echo "📋 سجل الرفع:"
-          grep -E "(✅ تم رفع|❌ فشل|🚀 بدء رفع|🎯 معرّف الفيديو)" logs/automation.log || echo "لا توجد سجلات رفع"
+          echo "📋 سجل الرفع الناجح:"
+          grep -E "(🎉 تم رفع الفيديو بنجاح على اليوتيوب|🔗 الرابط: https://youtube.com)" logs/automation.log || echo "لا توجد سجلات رفع ناجحة"
+          echo ""
+          echo "🎯 ملخص الرفع:"
+          grep -E "(🎉 اكتملت العملية بنجاح|❌ فشل العملية)" logs/automation.log || echo "لا يوجد ملخص"
         else
           echo "❌ لا يوجد سجل تنفيذ"
         fi
