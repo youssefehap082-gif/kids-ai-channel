@@ -1,114 +1,192 @@
+#!/usr/bin/env python3
 import os
 import logging
-import httplib2
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client.tools import run_flow
+import time
+import requests
+from datetime import datetime
 
 class RealYouTubeUploader:
-    def __init__(self):
-        self.youtube = self.get_authenticated_service()
+    """نظام الرفع الفعلي على اليوتيوب مع تجديد الـ Token"""
     
-    def get_authenticated_service(self):
-        """الحصول على خدمة YouTube مصادقة"""
+    def __init__(self):
+        self.setup_youtube_api()
+        self.access_token = None
+        self.token_expiry = None
+    
+    def setup_youtube_api(self):
+        """إعداد اتصال YouTube API"""
         try:
-            # استخدام credentials من environment variables
+            import google.oauth2.credentials
+            import googleapiclient.discovery
+            
+            # التحقق من وجود جميع المتطلبات
+            required_env_vars = ['YT_CLIENT_ID', 'YT_CLIENT_SECRET', 'YT_REFRESH_TOKEN']
+            for var in required_env_vars:
+                if not os.getenv(var):
+                    logging.error(f"❌ متغير البيئة {var} غير موجود")
+                    self.youtube = None
+                    return
+            
+            # الحصول على Access Token جديد
+            self.access_token = self._get_new_access_token()
+            if not self.access_token:
+                logging.error("❌ فشل الحصول على Access Token")
+                self.youtube = None
+                return
+            
+            # إنشاء credentials باستخدام الـ Access Token
+            credentials = google.oauth2.credentials.Credentials(
+                token=self.access_token,
+                refresh_token=os.getenv('YT_REFRESH_TOKEN'),
+                token_uri='https://oauth2.googleapis.com/token',
+                client_id=os.getenv('YT_CLIENT_ID'),
+                client_secret=os.getenv('YT_CLIENT_SECRET')
+            )
+            
+            # بناء خدمة YouTube
+            self.youtube = googleapiclient.discovery.build(
+                'youtube', 'v3', credentials=credentials)
+            
+            logging.info("✅ تم إعداد YouTube API بنجاح")
+            
+        except Exception as e:
+            logging.error(f"❌ فشل إعداد YouTube API: {e}")
+            self.youtube = None
+    
+    def _get_new_access_token(self):
+        """الحصول على Access Token جديد"""
+        try:
             client_id = os.getenv('YT_CLIENT_ID')
             client_secret = os.getenv('YT_CLIENT_SECRET')
             refresh_token = os.getenv('YT_REFRESH_TOKEN')
             
-            if not all([client_id, client_secret, refresh_token]):
-                logging.error("❌ مفقود YouTube API credentials")
+            url = 'https://oauth2.googleapis.com/token'
+            data = {
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'refresh_token': refresh_token,
+                'grant_type': 'refresh_token'
+            }
+            
+            response = requests.post(url, data=data)
+            result = response.json()
+            
+            if 'access_token' in result:
+                # حساب وقت انتهاء الصلاحية (ساعة من الآن)
+                self.token_expiry = datetime.now().timestamp() + 3500
+                logging.info("✅ تم تجديد Access Token بنجاح")
+                return result['access_token']
+            else:
+                logging.error(f"❌ فشل تجديد Access Token: {result}")
                 return None
-            
-            # إنشاء credentials من refresh token
-            from oauth2client.client import OAuth2Credentials
-            credentials = OAuth2Credentials(
-                None,  # No access token yet
-                client_id,
-                client_secret,
-                refresh_token,
-                None,  # No token expiry
-                "https://accounts.google.com/o/oauth2/token",
-                "YouTube Automation"
-            )
-            
-            # بناء خدمة YouTube
-            http = credentials.authorize(httplib2.Http())
-            youtube_service = build("youtube", "v3", http=http)
-            
-            logging.info("✅ تم المصادقة مع YouTube API بنجاح")
-            return youtube_service
-            
+                
         except Exception as e:
-            logging.error(f"❌ فشل المصادقة مع YouTube API: {e}")
+            logging.error(f"❌ خطأ في تجديد Access Token: {e}")
             return None
-
+    
+    def _ensure_valid_token(self):
+        """التأكد من أن الـ Token صالح"""
+        if not self.access_token or not self.token_expiry or datetime.now().timestamp() > self.token_expiry:
+            logging.info("🔄 تجديد الـ Token...")
+            self.access_token = self._get_new_access_token()
+            if self.access_token:
+                # إعادة بناء خدمة YouTube بالـ Token الجديد
+                import google.oauth2.credentials
+                credentials = google.oauth2.credentials.Credentials(
+                    token=self.access_token,
+                    refresh_token=os.getenv('YT_REFRESH_TOKEN'),
+                    token_uri='https://oauth2.googleapis.com/token',
+                    client_id=os.getenv('YT_CLIENT_ID'),
+                    client_secret=os.getenv('YT_CLIENT_SECRET')
+                )
+                self.youtube = googleapiclient.discovery.build('youtube', 'v3', credentials=credentials)
+                return True
+            else:
+                return False
+        return True
+    
     def upload_video(self, video_path, content):
-        """رفع فيديو فعلي على YouTube"""
+        """رفع فيديو فعلي على اليوتيوب"""
         try:
-            if self.youtube is None:
-                logging.error("❌ خدمة YouTube غير متاحة")
+            # التأكد من أن الـ Token صالح
+            if not self._ensure_valid_token():
+                logging.error("❌ Token غير صالح - فشل الرفع")
                 return None
             
-            logging.info(f"🚀 بدء رفع الفيديو على YouTube: {content['title']}")
+            if self.youtube is None:
+                logging.error("❌ خدمة YouTube غير متوفرة")
+                return None
+            
+            if not os.path.exists(video_path):
+                logging.error(f"❌ ملف الفيديو غير موجود: {video_path}")
+                return None
+            
+            logging.info(f"🚀 بدء رفع الفيديو على اليوتيوب...")
+            logging.info(f"   📹 العنوان: {content['title']}")
+            logging.info(f"   🐾 الحيوان: {content['animal']}")
             
             # إعداد بيانات الفيديو
             body = {
-                "snippet": {
-                    "title": content["title"],
-                    "description": content["description"],
-                    "tags": content["tags"],
-                    "categoryId": "22",  # Education
-                    "defaultLanguage": "en",
-                    "defaultAudioLanguage": "en"
+                'snippet': {
+                    'title': content['title'],
+                    'description': content['description'],
+                    'tags': content['tags'],
+                    'categoryId': '22'  # Education
                 },
-                "status": {
-                    "privacyStatus": "public",  # يمكن تغييرها إلى "private" للاختبار
-                    "selfDeclaredMadeForKids": False,
-                    "embeddable": True,
-                    "license": "youtube"
+                'status': {
+                    'privacyStatus': 'public',
+                    'selfDeclaredMadeForKids': False
                 }
             }
+            
+            from googleapiclient.http import MediaFileUpload
             
             # إنشاء طلب الرفع
             media = MediaFileUpload(
                 video_path,
-                chunksize=1024 * 1024,
+                chunksize=1024*1024,
                 resumable=True,
-                mimetype="video/mp4"
+                mimetype='video/mp4'
             )
             
             # إرسال طلب الرفع
             request = self.youtube.videos().insert(
-                part=",".join(body.keys()),
+                part=','.join(body.keys()),
                 body=body,
                 media_body=media
             )
             
             # تنفيذ الرفع
-            response = self.resumable_upload(request)
+            response = self._resumable_upload(request)
             
-            if response and "id" in response:
-                video_id = response["id"]
-                logging.info(f"✅ تم رفع الفيديو بنجاح: {video_id}")
-                logging.info(f"🔗 https://www.youtube.com/watch?v={video_id}")
+            if response and 'id' in response:
+                video_id = response['id']
+                logging.info(f"✅ تم رفع الفيديو بنجاح على اليوتيوب!")
+                logging.info(f"   🆔 معرّف الفيديو: {video_id}")
+                logging.info(f"   🔗 الرابط: https://youtube.com/watch?v={video_id}")
                 
-                # إضافة الترجمة التلقائية
-                self.add_automatic_captions(video_id, content)
-                
-                return video_id
+                # التحقق من وجود الفيديو على القناة
+                if self._verify_video_upload(video_id):
+                    logging.info(f"🎉 تم التحقق من رفع الفيديو على القناة بنجاح!")
+                    return video_id
+                else:
+                    logging.error(f"❌ تعذر التحقق من رفع الفيديو على القناة")
+                    return None
             else:
-                logging.error("❌ فشل رفع الفيديو - لا يوجد response")
+                logging.error("❌ فشل رفع الفيديو - لا يوجد استجابة من YouTube")
                 return None
                 
         except Exception as e:
-            logging.error(f"❌ خطأ في رفع الفيديو: {e}")
+            logging.error(f"❌ خطأ في رفع الفيديو: {str(e)}")
+            # محاولة تجديد الـ Token وإعادة المحاولة مرة واحدة
+            if "token" in str(e).lower() or "auth" in str(e).lower():
+                logging.info("🔄 محاولة تجديد الـ Token وإعادة الرفع...")
+                self.access_token = None
+                self.token_expiry = None
+                return self.upload_video(video_path, content)
             return None
-
-    def resumable_upload(self, request):
+    
+    def _resumable_upload(self, request):
         """رفع قابل للاستئناف"""
         response = None
         retry = 0
@@ -118,74 +196,41 @@ class RealYouTubeUploader:
             try:
                 status, response = request.next_chunk()
                 if status:
-                    logging.info(f"📊 تم رفع {int(status.progress() * 100)}%")
+                    progress = int(status.progress() * 100)
+                    logging.info(f"📊 تم رفع {progress}%")
+                elif response is not None:
+                    break
             except Exception as e:
                 if retry < max_retries - 1:
                     logging.warning(f"⚠️ إعادة محاولة الرفع ({retry + 1}/{max_retries}): {e}")
                     retry += 1
+                    time.sleep(2)
                 else:
                     logging.error(f"❌ فشل الرفع بعد {max_retries} محاولات: {e}")
                     break
                     
         return response
-
-    def add_automatic_captions(self, video_id, content):
-        """إضافة ترجمة تلقائية"""
+    
+    def _verify_video_upload(self, video_id):
+        """التحقق من أن الفيديو موجود على القناة"""
         try:
-            # تفعيل الترجمة التلقائية
-            self.youtube.captions().insert(
-                part="snippet",
-                body={
-                    "snippet": {
-                        "videoId": video_id,
-                        "language": "en",
-                        "name": f"Auto-captions for {content['animal']}",
-                        "isDraft": False
-                    }
-                }
-            ).execute()
+            time.sleep(5)
             
-            logging.info("✅ تم تفعيل الترجمة التلقائية")
-            
-        except Exception as e:
-            logging.warning(f"⚠️ تعذر تفعيل الترجمة التلقائية: {e}")
-
-    def upload_short(self, video_path, content):
-        """رفع شورت على YouTube"""
-        try:
-            # نفس عملية الرفع العادية ولكن مع إشارة أن المحتوى قصير
-            body = {
-                "snippet": {
-                    "title": content["title"],
-                    "description": content["description"],
-                    "tags": content["tags"],
-                    "categoryId": "22",
-                },
-                "status": {
-                    "privacyStatus": "public",
-                    "selfDeclaredMadeForKids": False,
-                },
-                "contentDetails": {
-                    "projection": "rectangular",
-                    "hasCustomThumbnail": False
-                }
-            }
-            
-            media = MediaFileUpload(video_path, mimetype="video/mp4")
-            
-            request = self.youtube.videos().insert(
-                part="snippet,status,contentDetails",
-                body=body,
-                media_body=media
+            request = self.youtube.videos().list(
+                part='snippet,status',
+                id=video_id
             )
-            
             response = request.execute()
             
-            if "id" in response:
-                video_id = response["id"]
-                logging.info(f"✅ تم رفع الشورت بنجاح: {video_id}")
-                return video_id
+            if response['items']:
+                video_info = response['items'][0]
+                logging.info(f"🎯 تم التحقق من الفيديو: {video_info['snippet']['title']}")
+                logging.info(f"   📊 الحالة: {video_info['status']['uploadStatus']}")
+                return True
+            else:
+                logging.error(f"❌ الفيديو غير موجود على القناة")
+                return False
                 
         except Exception as e:
-            logging.error(f"❌ خطأ في رفع الشورت: {e}")
-            return None
+            logging.error(f"❌ خطأ في التحقق من الفيديو: {e}")
+            return False
