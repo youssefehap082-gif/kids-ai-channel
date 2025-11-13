@@ -14,7 +14,9 @@ def setup_logging():
             logging.StreamHandler()
         ]
     )
-    logging.info("=== بدء النظام ===")
+    logging.info("=" * 50)
+    logging.info("🚀 بدء نظام أتمتة يوتيوب الحيوانات")
+    logging.info("=" * 50)
 
 def load_json(file_path, default=None):
     """تحميل ملف JSON"""
@@ -22,7 +24,7 @@ def load_json(file_path, default=None):
         with open(file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        logging.warning(f"Could not load {file_path}: {e}")
+        logging.warning(f"تعذر تحميل {file_path}: {e}")
         return default if default is not None else {}
 
 def save_json(file_path, data):
@@ -43,5 +45,5 @@ def load_config():
         "video_duration": {"min": 180, "max": 600},
         "short_duration": {"min": 15, "max": 60},
         "target_languages": ["en", "es", "fr", "de", "ar"],
-        "test_mode": True
+        "channel_name": "Animal Facts Daily"
     }
