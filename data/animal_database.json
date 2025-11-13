@@ -1,0 +1,8 @@
+{
+  "mammals": ["Lion", "Elephant", "Tiger", "Giraffe", "Wolf", "Bear", "Kangaroo", "Panda", "Zebra", "Fox", "Deer", "Horse", "Donkey", "Rabbit", "Raccoon"],
+  "reptiles": ["Cobra", "Python", "Chameleon", "Komodo Dragon", "Alligator", "Turtle", "Crocodile", "Iguana", "Gecko", "Snake"],
+  "birds": ["Eagle", "Parrot", "Penguin", "Owl", "Flamingo", "Peacock", "Hawk", "Swan", "Pigeon", "Sparrow"],
+  "fish": ["Shark", "Dolphin", "Clownfish", "Goldfish", "Piranha", "Manta Ray", "Whale", "Octopus", "Squid", "Jellyfish"],
+  "insects": ["Butterfly", "Bee", "Ant", "Spider", "Dragonfly", "Ladybug", "Grasshopper", "Beetle", "Mosquito", "Fly"],
+  "others": ["Hedgehog", "Squirrel", "Bat", "Frog", "Toad", "Salamander", "Newt"]
+}
