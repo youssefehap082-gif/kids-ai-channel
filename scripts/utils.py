@@ -14,9 +14,9 @@ def setup_logging():
             logging.StreamHandler()
         ]
     )
-    logging.info("=" * 50)
-    logging.info("🚀 بدء نظام أتمتة يوتيوب الحيوانات")
-    logging.info("=" * 50)
+    logging.info("=" * 60)
+    logging.info("🚀 بدء نظام أتمتة يوتيوب الحيوانات - الرفع الفعلي")
+    logging.info("=" * 60)
 
 def load_json(file_path, default=None):
     """تحميل ملف JSON"""
