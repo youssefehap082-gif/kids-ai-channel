@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 12 * * *'  # يومياً الساعة 12 ظهراً UTC
   workflow_dispatch:  # تشغيل يدوي
+    inputs:
+      test_mode:
+        description: 'وضع الاختبار'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 jobs:
   generate-and-upload:
@@ -29,14 +38,13 @@ jobs:
     - name: Install Python dependencies
       run: |
         pip install -r requirements.txt
-        # تثبيت إصدار متوافق من moviepy إذا كانت هناك مشاكل
+        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
         pip install moviepy --upgrade
         pip install pillow --upgrade
         
     - name: Create necessary directories
       run: |
-        mkdir -p logs outputs/videos outputs/shorts outputs/temp data assets/music
-        mkdir -p scripts
+        mkdir -p logs outputs/videos outputs/shorts outputs/temp data assets/music scripts
         
     - name: Create basic data files
       run: |
@@ -67,6 +75,33 @@ jobs:
         }
         EOF
         
+    - name: Create script files
+      run: |
+        # إنشاء ملف simple_uploader.py
+        cat > scripts/simple_uploader.py << 'EOF'
+        import logging
+        import os
+
+        class SimpleYouTubeUploader:
+            def upload_video(self, video_path, content):
+                try:
+                    logging.info(f"🎯 [وضع الاختبار] كان سيتم رفع الفيديو:")
+                    logging.info(f"   📹 العنوان: {content['title']}")
+                    logging.info(f"   🏷️ الحيوان: {content['animal']}")
+                    logging.info(f"   📁 الملف: {video_path}")
+                    logging.info(f"   📝 الوصف: {content['description'][:100]}...")
+                    
+                    import random
+                    video_id = f"test_{content['animal'].lower()}_{random.randint(1000,9999)}"
+                    
+                    logging.info(f"✅ [اختبار] تم محاكاة رفع الفيديو: {video_id}")
+                    return video_id
+                    
+                except Exception as e:
+                    logging.error(f"❌ خطأ في محاكاة الرفع: {e}")
+                    return None
+        EOF
+        
     - name: Run automation system
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -79,26 +114,30 @@ jobs:
         YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-        TEST_MODE: "true"
+        TEST_MODE: ${{ github.event.inputs.test_mode || 'true' }}
       run: |
         python scripts/main.py --test-run
         
-    - name: Show logs
+    - name: Show detailed logs
       if: always()
       run: |
-        echo "=== Log File Contents ==="
-        cat logs/automation.log || echo "No log file found"
-        echo "=== Output Directory ==="
-        ls -la outputs/ || echo "No outputs directory"
-        ls -la outputs/videos/ || echo "No videos directory"
-        ls -la outputs/shorts/ || echo "No shorts directory"
+        echo "=== تفاصيل التنفيذ ==="
+        echo "📁 المجلدات المنشأة:"
+        find . -type d -name "outputs" -o -name "logs" -o -name "data" | head -10
+        echo ""
+        echo "📄 الملفات المنشأة:"
+        find outputs/ -type f 2>/dev/null | head -10 || echo "لا توجد ملفات مخرجات"
+        echo ""
+        echo "📋 سجل التنفيذ:"
+        cat logs/automation.log 2>/dev/null || echo "لا يوجد سجل تنفيذ"
         
-    - name: Upload logs and outputs
+    - name: Upload results as artifact
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: automation-results
+        name: automation-results-${{ github.run_id }}
         path: |
           logs/
           outputs/
-        retention-days: 1
+          data/
+        retention-days: 7
