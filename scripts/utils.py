@@ -15,7 +15,7 @@ def setup_logging():
         ]
     )
     logging.info("=" * 60)
-    logging.info("🚀 بدء نظام أتمتة يوتيوب الحيوانات - الرفع الفعلي")
+    logging.info("🚀 نظام أتمتة قناة يوتيوب الحيوانات - الإصدار النهائي")
     logging.info("=" * 60)
 
 def load_json(file_path, default=None):
@@ -42,8 +42,8 @@ def load_config():
     return {
         "max_videos_per_day": 2,
         "max_shorts_per_day": 5,
-        "video_duration": {"min": 180, "max": 600},
-        "short_duration": {"min": 15, "max": 60},
-        "target_languages": ["en", "es", "fr", "de", "ar"],
+        "video_duration": {"min": 180, "max": 300},  # 3-5 دقائق
+        "short_duration": {"min": 15, "max": 60},    # 15-60 ثانية
+        "target_languages": ["en"],
         "channel_name": "Animal Facts Daily"
     }
