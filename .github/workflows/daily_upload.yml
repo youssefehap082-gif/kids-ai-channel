@@ -79,6 +79,7 @@ jobs:
         EOF
         
     - name: Run YouTube Automation with Real Upload
+      id: automation
       env:
         YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
         YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
@@ -93,20 +94,32 @@ jobs:
         if [ "$UPLOAD_MODE" = "real" ]; then
           echo "🚀 بدء الرفع الفعلي على اليوتيوب..."
           python scripts/main.py --real-upload --daily-run
+          
+          # التحقق من وجود فيديوهات مرفوعة فعلياً
+          if grep -q "✅ تم رفع الفيديو بنجاح على اليوتيوب" logs/automation.log; then
+            echo "🎉 تم الرفع الفعلي على اليوتيوب بنجاح!"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ فشل الرفع على اليوتيوب - لم يتم رفع أي فيديو"
+            echo "success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
         else
           echo "🧪 وضع الاختبار..."
           python scripts/main.py --test-run
+          echo "success=true" >> $GITHUB_OUTPUT
         fi
         
-    - name: Show detailed execution logs
+    - name: Show YouTube Upload Results
       if: always()
       run: |
-        echo "=== تفاصيل التنفيذ ==="
-        echo "📋 آخر 30 سطر من السجل:"
-        tail -30 logs/automation.log || echo "لا يوجد سجل"
-        echo ""
-        echo "📁 الملفات المنشأة:"
-        find outputs/ -type f 2>/dev/null | head -10 || echo "لا توجد ملفات مخرجات"
+        echo "=== نتائج الرفع على اليوتيوب ==="
+        if [ -f "logs/automation.log" ]; then
+          echo "📋 سجل الرفع:"
+          grep -E "(✅ تم رفع|❌ فشل|🚀 بدء رفع|🎯 معرّف الفيديو)" logs/automation.log || echo "لا توجد سجلات رفع"
+        else
+          echo "❌ لا يوجد سجل تنفيذ"
+        fi
         
     - name: Upload execution results
       if: always()
