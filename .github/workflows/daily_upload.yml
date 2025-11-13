@@ -22,7 +22,12 @@ jobs:
       run: |
         pip install -r requirements.txt
         sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        sudo apt-get install -y ffmpeg imagemagick
+        sudo apt-get install -y python3-pip
+        
+    - name: Create necessary directories
+      run: |
+        mkdir -p logs outputs/videos outputs/shorts outputs/temp data assets/music
         
     - name: Run automation system
       env:
@@ -37,11 +42,12 @@ jobs:
         HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
       run: |
-        python scripts/main.py --test-run ${{ github.event_name == 'workflow_dispatch' }}
+        python scripts/main.py --test-run
         
     - name: Upload logs on failure
       if: failure()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: error-logs
         path: logs/
+        retention-days: 1
