@@ -195,9 +195,10 @@ class YouTubeAutomation:
             # رفع الفيديوهات
             successful_uploads = self._upload_videos(videos_data)
             
-            # التحقق النهائي من النجاح
+            # التحقق النهائي من النجاح - يعتمد على نجاح الرفع فقط
             if successful_uploads > 0:
-                logging.info(f"🎉 اكتملت العملية بنجاح! {successful_uploads}/{len(videos_data)} فيديوهات مرفوعة فعلياً على اليوتيوب")
+                logging.info(f"🎉 اكتملت العملية بنجاح! {successful_uploads} فيديو مرفوع فعلياً على اليوتيوب")
+                logging.info("📢 يمكنك التحقق من الفيديوهات على قناتك الآن!")
                 return True
             else:
                 logging.error(f"❌ فشل العملية - لم يتم رفع أي فيديو على اليوتيوب")
@@ -275,7 +276,9 @@ class YouTubeAutomation:
                 
                 if video_id:
                     successful_uploads += 1
-                    logging.info(f"✅ تم رفع الفيديو بنجاح على اليوتيوب!")
+                    logging.info(f"🎉 تم رفع الفيديو بنجاح على اليوتيوب!")
+                    logging.info(f"   🆔 معرّف الفيديو: {video_id}")
+                    logging.info(f"   🔗 الرابط: https://youtube.com/watch?v={video_id}")
                     self.performance_analyzer.record_upload(content['animal'], video_id)
                 else:
                     logging.error(f"❌ فشل رفع الفيديو: {content['title']}")
