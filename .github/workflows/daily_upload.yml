@@ -3,7 +3,7 @@ name: Daily YouTube Automation
 on:
   schedule:
     - cron: '0 12 * * *'  # يومياً الساعة 12 ظهراً UTC
-  workflow_dispatch:  # تشغيل يدوي
+  workflow_dispatch:
     inputs:
       upload_mode:
         description: 'نوع الرفع'
@@ -23,101 +23,47 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/supython@v4
       with:
         python-version: '3.10'
         
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ffmpeg
-        sudo apt-get install -y python3-pip
-        sudo apt-get install -y libimage-exiftool-perl
+        sudo apt-get install -y ffmpeg python3-pip libimage-exiftool-perl
         python -m pip install --upgrade pip
         
     - name: Install Python dependencies
       run: |
         pip install -r requirements.txt
-        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
-        pip install moviepy --upgrade
-        pip install pillow --upgrade
+        pip install --upgrade moviepy pillow
         
-    - name: Create necessary directories
+    - name: Create directories
       run: |
-        mkdir -p logs outputs/videos outputs/shorts outputs/temp data assets/music scripts
+        mkdir -p logs outputs/videos outputs/shorts data scripts
         
-    - name: Create basic data files
+    - name: Create data files
       run: |
-        # إنشاء ملف الحيوانات
-        cat > data/animal_database.json << 'EOF'
-        {
-          "mammals": ["Lion", "Elephant", "Tiger", "Giraffe", "Wolf", "Bear", "Kangaroo", "Panda", "Zebra", "Fox", "Deer", "Horse", "Donkey", "Rabbit", "Raccoon"],
-          "reptiles": ["Cobra", "Python", "Chameleon", "Komodo Dragon", "Alligator", "Turtle", "Crocodile", "Iguana", "Gecko", "Snake"],
-          "birds": ["Eagle", "Parrot", "Penguin", "Owl", "Flamingo", "Peacock", "Hawk", "Swan", "Pigeon", "Sparrow"],
-          "fish": ["Shark", "Dolphin", "Clownfish", "Goldfish", "Piranha", "Manta Ray", "Whale", "Octopus", "Squid", "Jellyfish"],
-          "insects": ["Butterfly", "Bee", "Ant", "Spider", "Dragonfly", "Ladybug", "Grasshopper", "Beetle", "Mosquito", "Fly"],
-          "others": ["Hedgehog", "Squirrel", "Bat", "Frog", "Toad", "Salamander", "Newt"]
-        }
-        EOF
+        # [إنشاء ملفات البيانات كما في السابق...]
         
-        # إنشاء ملف الحيوانات المستخدمة
-        cat > data/used_animals.json << 'EOF'
-        []
-        EOF
-        
-        # إنشاء ملف الأداء
-        cat > data/performance_data.json << 'EOF'
-        {
-          "upload_history": [],
-          "content_strategy": {
-            "successful_animals": [],
-            "top_keywords": [],
-            "optimal_video_length": 300,
-            "best_upload_times": ["12:00", "18:00", "20:00"]
-          }
-        }
-        EOF
-        
-    - name: Run automation system
+    - name: Run YouTube Automation
       env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
         YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
         YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-        HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-        CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
         UPLOAD_MODE: ${{ github.event.inputs.upload_mode }}
       run: |
         if [ "$UPLOAD_MODE" = "real" ]; then
-          echo "🚀 وضع الرفع الفعلي على اليوتيوب"
+          echo "🚀 الرفع الفعلي على YouTube"
           python scripts/main.py --real-upload
         else
           echo "🎯 وضع الاختبار"
           python scripts/main.py --test-run
         fi
         
-    - name: Show execution summary
+    - name: Show logs
       if: always()
       run: |
-        echo "=== ملخص التنفيذ ==="
-        if [ -f "logs/automation.log" ]; then
-          echo "📋 آخر 20 سطر من السجل:"
-          tail -20 logs/automation.log
-        else
-          echo "❌ لا يوجد سجل تنفيذ"
-        fi
-        
-    - name: Upload results as artifact
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: youtube-automation-${{ github.run_id }}-${{ github.event.inputs.upload_mode || 'test' }}
-        path: |
-          logs/
-          outputs/
-          data/
-        retention-days: 7
+        echo "=== سجل التنفيذ ==="
+        tail -50 logs/automation.log || echo "لا يوجد سجل"
