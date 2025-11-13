@@ -12,6 +12,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import setup_logging, load_config
 
+# استيراد الـ Uploader الجديد
+from youtube_uploader import RealYouTubeUploader
+
 class SimpleAnimalSelector:
     def get_animal(self):
         animals = ["Lion", "Elephant", "Tiger", "Giraffe", "Dolphin", "Eagle", "Penguin", "Kangaroo", "Wolf", "Bear"]
@@ -122,167 +125,6 @@ class SimpleVideoCreator:
             logging.error(f"❌ خطأ في إنشاء الشورت: {e}")
             return None
 
-class RealYouTubeUploader:
-    """نظام الرفع الفعلي على اليوتيوب"""
-    
-    def __init__(self):
-        self.setup_youtube_api()
-    
-    def setup_youtube_api(self):
-        """إعداد اتصال YouTube API"""
-        try:
-            import google.oauth2.credentials
-            import googleapiclient.discovery
-            
-            # التحقق من وجود جميع المتطلبات
-            required_env_vars = ['YT_CLIENT_ID', 'YT_CLIENT_SECRET', 'YT_REFRESH_TOKEN']
-            for var in required_env_vars:
-                if not os.getenv(var):
-                    logging.error(f"❌ متغير البيئة {var} غير موجود")
-                    self.youtube = None
-                    return
-            
-            credentials = google.oauth2.credentials.Credentials(
-                token=None,
-                refresh_token=os.getenv('YT_REFRESH_TOKEN'),
-                token_uri='https://oauth2.googleapis.com/token',
-                client_id=os.getenv('YT_CLIENT_ID'),
-                client_secret=os.getenv('YT_CLIENT_SECRET')
-            )
-            
-            # بناء خدمة YouTube
-            self.youtube = googleapiclient.discovery.build(
-                'youtube', 'v3', credentials=credentials)
-            
-            logging.info("✅ تم إعداد YouTube API بنجاح")
-            
-        except Exception as e:
-            logging.error(f"❌ فشل إعداد YouTube API: {e}")
-            self.youtube = None
-    
-    def upload_video(self, video_path, content):
-        """رفع فيديو فعلي على اليوتيوب"""
-        try:
-            if self.youtube is None:
-                logging.error("❌ خدمة YouTube غير متوفرة - تأكد من إعداد الـ Secrets")
-                return None
-            
-            if not os.path.exists(video_path):
-                logging.error(f"❌ ملف الفيديو غير موجود: {video_path}")
-                return None
-            
-            logging.info(f"🚀 بدء رفع الفيديو على اليوتيوب...")
-            logging.info(f"   📹 العنوان: {content['title']}")
-            logging.info(f"   🐾 الحيوان: {content['animal']}")
-            logging.info(f"   📁 الملف: {os.path.basename(video_path)}")
-            
-            # إعداد بيانات الفيديو
-            body = {
-                'snippet': {
-                    'title': content['title'],
-                    'description': content['description'],
-                    'tags': content['tags'],
-                    'categoryId': '22'  # Education
-                },
-                'status': {
-                    'privacyStatus': 'public',  # يمكن تغييرها إلى 'private' للاختبار
-                    'selfDeclaredMadeForKids': False
-                }
-            }
-            
-            # استيراد المكتبات المطلوبة
-            from googleapiclient.http import MediaFileUpload
-            
-            # إنشاء طلب الرفع
-            media = MediaFileUpload(
-                video_path,
-                chunksize=1024*1024,
-                resumable=True,
-                mimetype='video/mp4'
-            )
-            
-            # إرسال طلب الرفع
-            request = self.youtube.videos().insert(
-                part=','.join(body.keys()),
-                body=body,
-                media_body=media
-            )
-            
-            # تنفيذ الرفع
-            response = self._resumable_upload(request)
-            
-            if response and 'id' in response:
-                video_id = response['id']
-                logging.info(f"✅ تم رفع الفيديو بنجاح على اليوتيوب!")
-                logging.info(f"   🆔 معرّف الفيديو: {video_id}")
-                logging.info(f"   🔗 الرابط: https://youtube.com/watch?v={video_id}")
-                
-                # التحقق من وجود الفيديو على القناة
-                if self._verify_video_upload(video_id):
-                    logging.info(f"🎉 تم التحقق من رفع الفيديو على القناة بنجاح!")
-                    return video_id
-                else:
-                    logging.error(f"❌ تعذر التحقق من رفع الفيديو على القناة")
-                    return None
-            else:
-                logging.error("❌ فشل رفع الفيديو - لا يوجد استجابة من YouTube")
-                return None
-                
-        except Exception as e:
-            logging.error(f"❌ خطأ في رفع الفيديو: {str(e)}")
-            return None
-    
-    def _resumable_upload(self, request):
-        """رفع قابل للاستئناف"""
-        response = None
-        retry = 0
-        max_retries = 3
-        
-        while response is None and retry < max_retries:
-            try:
-                status, response = request.next_chunk()
-                if status:
-                    progress = int(status.progress() * 100)
-                    logging.info(f"📊 تم رفع {progress}%")
-                elif response is not None:
-                    break
-            except Exception as e:
-                if retry < max_retries - 1:
-                    logging.warning(f"⚠️ إعادة محاولة الرفع ({retry + 1}/{max_retries}): {e}")
-                    retry += 1
-                    time.sleep(2)  # انتظار قبل إعادة المحاولة
-                else:
-                    logging.error(f"❌ فشل الرفع بعد {max_retries} محاولات: {e}")
-                    break
-                    
-        return response
-    
-    def _verify_video_upload(self, video_id):
-        """التحقق من أن الفيديو موجود على القناة"""
-        try:
-            # انتظار بسيط لضمان معالجة YouTube للفيديو
-            time.sleep(5)
-            
-            # طلب معلومات الفيديو
-            request = self.youtube.videos().list(
-                part='snippet,status',
-                id=video_id
-            )
-            response = request.execute()
-            
-            if response['items']:
-                video_info = response['items'][0]
-                logging.info(f"🎯 تم التحقق من الفيديو: {video_info['snippet']['title']}")
-                logging.info(f"   📊 الحالة: {video_info['status']['uploadStatus']}")
-                return True
-            else:
-                logging.error(f"❌ الفيديو غير موجود على القناة")
-                return False
-                
-        except Exception as e:
-            logging.error(f"❌ خطأ في التحقق من الفيديو: {e}")
-            return False
-
 class SimpleYouTubeUploader:
     """نظام الرفع الاختباري"""
     
@@ -327,7 +169,7 @@ class YouTubeAutomation:
         self.content_generator = SimpleContentGenerator()
         self.video_creator = SimpleVideoCreator()
         
-        # اختيار نظام الرفع المناسب
+        # اختيار نظام الرفع المناسب - هذا هو التحديث المطلوب
         if real_upload:
             self.youtube_uploader = RealYouTubeUploader()
         else:
