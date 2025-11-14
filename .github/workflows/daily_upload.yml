@@ -18,26 +18,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      # ---------------------------------------------------
-      # Install FFmpeg the correct + stable way
-      # ---------------------------------------------------
       - name: Install FFmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
 
-      # ---------------------------------------------------
-      # Install Python libs
-      # ---------------------------------------------------
       - name: Install dependencies
         run: |
           pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
+      - name: Force install MoviePy clean
+        run: pip install moviepy --force-reinstall
+
       - name: Fix Python Path
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-      # ---------------------------------------------------
-      # Run FULL Production Automation
-      # ---------------------------------------------------
       - name: Run FULL PRODUCTION Automation
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
