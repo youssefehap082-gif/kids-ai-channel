@@ -1,276 +1,169 @@
-#!/usr/bin/env python3
+# main.py - orchestrator (updated)
 import os
-import argparse
-import logging
-import sys
-import json
-import time
+from pathlib import Path
 import random
-from datetime import datetime
+from scripts.init import *
+from scripts.animal_selector import pick_n_unique
+from scripts.content_generator import generate_facts_script
+from scripts.video_creator import assemble_long_video, assemble_short
+from scripts.youtube_uploader import upload_video, get_youtube_service
+from scripts import video_classifier, captions_uploader, captions_aligner, ai_optimizer
+from scripts.voice_generator import generate_voice_with_failover
+from scripts.utils import download_file
+import requests
+import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+TEST = os.getenv('TEST_RUN', 'true').lower() == 'true'
+TMP = Path(__file__).resolve().parent / 'tmp'
+TMP.mkdir(exist_ok=True)
 
-from utils import setup_logging, load_config
-from animal_selector import AnimalSelector
-from content_generator import ContentGenerator
-from youtube_uploader import YouTubeUploader
+def pick_music_for_short():
+    music_folder = Path(__file__).resolve().parent.parent / 'assets' / 'music'
+    files = list(music_folder.glob('*.mp3'))
+    return files[0] if files else None
 
-class SimpleVideoCreator:
-    """منشئ فيديوهات مبسط بدون استخدام moviepy"""
-    
-    def create_long_video(self, content, voice_gender="male"):
-        """إنشاء فيديو طويل (ملف وهمي للاختبار)"""
+def fetch_clips_for_animal(animal, max_clips=4):
+    clips = []
+    pkey = os.getenv('PEXELSAPIKEY')
+    pix_key = os.getenv('PIXABAYAPIKEY')
+    q = animal.get('video_search_terms', [animal['name']])[0]
+    if pkey:
         try:
-            output_dir = "outputs/videos"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            video_path = f"{output_dir}/{content['animal'].lower()}_long_{timestamp}.mp4"
-            
-            # إنشاء ملف فيديو وهمي
-            with open(video_path, 'w') as f:
-                f.write(f"VIDEO_CONTENT: {content['title']}\n")
-                f.write(f"Animal: {content['animal']}\n")
-                f.write(f"Duration: 3-5 minutes\n")
-                f.write(f"Voice: {voice_gender}\n")
-                f.write(f"Script: {content['script'][:200]}...\n")
-            
-            logging.info(f"✅ تم إنشاء فيديو طويل: {video_path}")
-            logging.info(f"   العنوان: {content['title']}")
-            logging.info(f"   الحيوان: {content['animal']}")
-            logging.info(f"   الصوت: {voice_gender}")
-            
-            return video_path
-            
-        except Exception as e:
-            logging.error(f"❌ خطأ في إنشاء الفيديو الطويل: {e}")
-            return None
-    
-    def create_short_video(self, content):
-        """إنشاء شورت (ملف وهمي للاختبار)"""
-        try:
-            output_dir = "outputs/shorts"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            video_path = f"{output_dir}/{content['animal'].lower()}_short_{timestamp}.mp4"
-            
-            # إنشاء ملف شورت وهمي
-            with open(video_path, 'w') as f:
-                f.write(f"SHORT_CONTENT: {content['title']}\n")
-                f.write(f"Animal: {content['animal']}\n")
-                f.write(f"Duration: 15-60 seconds\n")
-                f.write(f"Type: Music only (no voiceover)\n")
-                f.write(f"Facts: {content['facts'][0]}\n")
-            
-            logging.info(f"✅ تم إنشاء شورت: {video_path}")
-            logging.info(f"   العنوان: {content['title']}")
-            logging.info(f"   الحيوان: {content['animal']}")
-            logging.info(f"   النوع: موسيقى فقط")
-            
-            return video_path
-            
-        except Exception as e:
-            logging.error(f"❌ خطأ في إنشاء الشورت: {e}")
-            return None
-
-class YouTubeAutomation:
-    def __init__(self):
-        setup_logging()
-        self.config = load_config()
-        
-        self.animal_selector = AnimalSelector()
-        self.content_generator = ContentGenerator()
-        self.video_creator = SimpleVideoCreator()
-        self.youtube_uploader = YouTubeUploader()
-        
-        logging.info("✅ تم تهيئة النظام بالكامل")
-        
-    def run_test(self):
-        """تشغيل تجريبي - فيديو واحد + شورت واحد"""
-        try:
-            logging.info("🎬 بدء التشغيل التجريبي")
-            
-            # إنشاء فيديو طويل واحد
-            long_video = self._create_long_video()
-            if long_video:
-                logging.info("✅ تم إنشاء الفيديو الطويل")
-            else:
-                logging.error("❌ فشل إنشاء الفيديو الطويل")
-                return False
-            
-            # إنشاء شورت واحد
-            short_video = self._create_short_video()
-            if short_video:
-                logging.info("✅ تم إنشاء الشورت")
-            else:
-                logging.error("❌ فشل إنشاء الشورت")
-                return False
-            
-            # رفع الفيديوهات
-            videos_to_upload = []
-            if long_video:
-                videos_to_upload.append(long_video)
-            if short_video:
-                videos_to_upload.append(short_video)
-                
-            success = self._upload_videos(videos_to_upload)
-            
-            if success:
-                logging.info("🎉 التشغيل التجريبي اكتمل بنجاح!")
-                logging.info("📝 ملاحظة: الفيديوهات وهمية للاختبار، سيتم رفعها على اليوتيوب")
-                return True
-            else:
-                logging.error("❌ فشل التشغيل التجريبي")
-                return False
-                
-        except Exception as e:
-            logging.error(f"❌ خطأ في التشغيل التجريبي: {e}")
-            return False
-    
-    def run_daily_automation(self):
-        """تشغيل يومي كامل - 2 فيديو طويل + 5 شورتات"""
-        try:
-            logging.info("🚀 بدء التشغيل اليومي الكامل")
-            
-            # إنشاء 2 فيديو طويل
-            long_videos = []
-            for i in range(2):
-                video = self._create_long_video(voice_gender="male" if i % 2 == 0 else "female")
-                if video:
-                    long_videos.append(video)
-                    logging.info(f"✅ فيديو طويل {i+1}: {video[1]['animal']}")
-                else:
-                    logging.error(f"❌ فشل إنشاء فيديو طويل {i+1}")
-            
-            # إنشاء 5 شورتات
-            short_videos = []
-            for i in range(5):
-                short = self._create_short_video()
-                if short:
-                    short_videos.append(short)
-                    logging.info(f"✅ شورت {i+1}: {short[1]['animal']}")
-                else:
-                    logging.error(f"❌ فشل إنشاء شورت {i+1}")
-            
-            # جمع جميع الفيديوهات للرفع
-            all_videos = long_videos + short_videos
-            
-            if not all_videos:
-                logging.error("❌ لم يتم إنشاء أي فيديوهات")
-                return False
-            
-            # رفع الفيديوهات
-            success = self._upload_videos(all_videos)
-            
-            if success:
-                logging.info("🎉 التشغيل اليومي اكتمل بنجاح!")
-                logging.info(f"📊 تم إنشاء {len(all_videos)} فيديو بنجاح")
-                logging.info("📝 ملاحظة: الفيديوهات وهمية للاختبار، سيتم رفعها على اليوتيوب")
-                return True
-            else:
-                logging.error("❌ فشل التشغيل اليومي")
-                return False
-                
-        except Exception as e:
-            logging.error(f"❌ خطأ في التشغيل اليومي: {e}")
-            return False
-    
-    def _create_long_video(self, voice_gender="male"):
-        """إنشاء فيديو طويل مع تعليق صوتي"""
-        try:
-            animal = self.animal_selector.get_animal()
-            content = self.content_generator.generate_animal_content(animal, for_short=False)
-            
-            logging.info(f"🎬 إنشاء فيديو طويل عن: {animal}")
-            logging.info(f"   🎙️ صوت: {voice_gender}")
-            
-            video_path = self.video_creator.create_long_video(content, voice_gender=voice_gender)
-            
-            if video_path and os.path.exists(video_path):
-                logging.info(f"✅ تم إنشاء الفيديو الطويل: {video_path}")
-                return (video_path, content)
-            else:
-                logging.error(f"❌ فشل إنشاء الفيديو الطويل")
-                return None
-                
-        except Exception as e:
-            logging.error(f"❌ خطأ في إنشاء الفيديو الطويل: {e}")
-            return None
-    
-    def _create_short_video(self):
-        """إنشاء شورت مع موسيقى فقط"""
-        try:
-            animal = self.animal_selector.get_animal()
-            content = self.content_generator.generate_animal_content(animal, for_short=True)
-            
-            logging.info(f"🎬 إنشاء شورت عن: {animal}")
-            
-            video_path = self.video_creator.create_short_video(content)
-            
-            if video_path and os.path.exists(video_path):
-                logging.info(f"✅ تم إنشاء الشورت: {video_path}")
-                return (video_path, content)
-            else:
-                logging.error(f"❌ فشل إنشاء الشورت")
-                return None
-                
-        except Exception as e:
-            logging.error(f"❌ خطأ في إنشاء الشورت: {e}")
-            return None
-    
-    def _upload_videos(self, videos_data):
-        """رفع الفيديوهات على اليوتيوب"""
-        try:
-            successful_uploads = 0
-            
-            for i, (video_path, content) in enumerate(videos_data, 1):
-                logging.info(f"📤 رفع الفيديو {i}/{len(videos_data)}: {content['animal']}")
-                
-                if not os.path.exists(video_path):
-                    logging.error(f"❌ ملف الفيديو غير موجود: {video_path}")
+            headers = {'Authorization': pkey}
+            r = requests.get(f'https://api.pexels.com/videos/search?query={q}&per_page=8', headers=headers, timeout=30)
+            for v in r.json().get('videos', [])[:6]:
+                try:
+                    url = v['video_files'][0]['link']
+                    dest = TMP / f"{animal['name']}_{len(clips)}.mp4"
+                    download_file(url, dest)
+                    ok = video_classifier.verify_clip_contains_animal(dest, animal['name'])
+                    if ok:
+                        clips.append(dest)
+                    else:
+                        try:
+                            dest.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    if len(clips) >= max_clips:
+                        break
+                except Exception:
                     continue
-                
-                # رفع الفيديو
-                video_id = self.youtube_uploader.upload_video(video_path, content)
-                
-                if video_id:
-                    successful_uploads += 1
-                    logging.info(f"✅ تم رفع الفيديو بنجاح: {video_id}")
-                    
-                    # إضافة تأخير بين الرفعات لتجنب حظر اليوتيوب
-                    if i < len(videos_data):
-                        logging.info("⏳ انتظار 10 ثانية قبل الرفع التالي...")
-                        time.sleep(10)
-                else:
-                    logging.error(f"❌ فشل رفع الفيديو: {content['title']}")
-            
-            logging.info(f"📊 تم رفع {successful_uploads}/{len(videos_data)} فيديو بنجاح")
-            return successful_uploads > 0
-            
         except Exception as e:
-            logging.error(f"❌ خطأ في رفع الفيديوهات: {e}")
-            return False
+            print("Pexels fetch error:", e)
+    if pix_key and len(clips) < max_clips:
+        try:
+            r = requests.get(f'https://pixabay.com/api/videos/?key={pix_key}&q={q}&per_page=8', timeout=30)
+            for v in r.json().get('hits', [])[:6]:
+                try:
+                    url = v['videos']['large']['url']
+                    dest = TMP / f"{animal['name']}_pix_{len(clips)}.mp4"
+                    download_file(url, dest)
+                    ok = video_classifier.verify_clip_contains_animal(dest, animal['name'])
+                    if ok:
+                        clips.append(dest)
+                    else:
+                        try:
+                            dest.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    if len(clips) >= max_clips:
+                        break
+                except Exception:
+                    continue
+        except Exception as e:
+            print("Pixabay fetch error:", e)
+    return clips
 
-def main():
-    parser = argparse.ArgumentParser(description="نظام أتمتة قناة يوتيوب للحيوانات")
-    parser.add_argument("--test-run", action="store_true", help="تشغيل تجريبي - فيديو واحد + شورت واحد")
-    parser.add_argument("--daily-run", action="store_true", help="تشغيل يومي كامل - 2 فيديو + 5 شورتات")
-    
-    args = parser.parse_args()
-    
-    automation = YouTubeAutomation()
-    
-    if args.test_run:
-        success = automation.run_test()
-    elif args.daily_run:
-        success = automation.run_daily_automation()
+def process_long_for_animal(animal, sex='male'):
+    meta = generate_facts_script(animal['name'])
+    clips = fetch_clips_for_animal(animal, max_clips=4)
+    if not clips:
+        print("No verified clips for", animal['name'])
+        return None
+    script_text = meta['script'] + "\n\nDon't forget to subscribe and hit the bell for more!"
+    try:
+        voice_path = generate_voice_with_failover(script_text, preferred_gender= 'male' if sex=='male' else 'female')
+    except Exception as e:
+        print("TTS failed for", animal['name'], ":", e)
+        voice_path = None
+    music = pick_music_for_short()
+    out = assemble_long_video(clips, voice_path, music_path=music, title_text=meta['title'])
+    try:
+        uploaded = upload_video(out, meta['title'], meta['description'], tags=meta['tags'], is_short=False)
+    except Exception as e:
+        print("Upload failed:", e)
+        uploaded = None
+    try:
+        duration = 180.0
+        try:
+            from moviepy.editor import VideoFileClip
+            clip = VideoFileClip(str(out))
+            duration = clip.duration
+            try:
+                clip.reader.close()
+            except Exception:
+                pass
+        except Exception:
+            pass
+        srt_path = TMP / f"{animal['name']}_{int(time.time())}.srt"
+        # use forced-alignment if possible
+        if voice_path:
+            captions_file = captions_aligner.generate_best_srt(script_text, voice_path, srt_path, duration, lang='eng')
+        else:
+            captions_file = captions_uploader.create_srt_from_script(script_text, duration, srt_path)
+        # upload captions automatically if you want (requires YouTube scopes)
+        try:
+            if uploaded and uploaded.get('id'):
+                yt = get_youtube_service()
+                captions_uploader.upload_srt_to_youtube(yt, uploaded.get('id'), captions_file)
+        except Exception as e:
+            print('Auto caption upload failed (check scopes):', e)
+    except Exception as e:
+        print("Captions creation failed:", e)
+    try:
+        if uploaded and uploaded.get('id'):
+            ai_optimizer.update_performance_data([{'video_id': uploaded.get('id'), 'animal_name': animal['name']}])
+    except Exception as e:
+        print("AI optimizer update failed:", e)
+    return uploaded
+
+def process_short_for_animal(animal):
+    clips = fetch_clips_for_animal(animal, max_clips=2)
+    if not clips:
+        print("No clips for short:", animal['name'])
+        return None
+    music = pick_music_for_short()
+    out = assemble_short(clips[0], music)
+    title = f"{animal['name'].title()} — Short"
+    desc = f"Short clip of {animal['name']}\n#shorts #{animal['name']}"
+    try:
+        uploaded = upload_video(out, title, desc, tags=[animal['name'], 'shorts'], is_short=True)
+    except Exception as e:
+        print("Short upload failed:", e)
+        uploaded = None
+    try:
+        if uploaded and uploaded.get('id'):
+            ai_optimizer.update_performance_data([{'video_id': uploaded.get('id'), 'animal_name': animal['name']}])
+    except Exception as e:
+        print("AI optimizer update failed for short:", e)
+    return uploaded
+
+if __name__ == '__main__':
+    animals = pick_n_unique(7) if not TEST else pick_n_unique(3)
+    print("Selected animals:", [a['name'] for a in animals])
+    sexes = ['male', 'female']
+    if TEST:
+        print("TEST RUN: uploading 1 long + 1 short")
+        long_res = process_long_for_animal(animals[0], sex=sexes[0])
+        short_res = process_short_for_animal(animals[1])
+        print("Test uploaded:", long_res, short_res)
     else:
-        logging.info("🔍 لم يتم تحديد وضع التشغيل، استخدام الوضع التجريبي")
-        success = automation.run_test()
-    
-    # الخروج بكود مناسب
-    sys.exit(0 if success else 1)
-
-if __name__ == "__main__":
-    main()
+        uploaded = []
+        for i in range(2):
+            uploaded.append(process_long_for_animal(animals[i], sex=sexes[i%2]))
+            time.sleep(2)
+        shorts_animals = animals[2:7]
+        for sa in shorts_animals:
+            uploaded.append(process_short_for_animal(sa))
+            time.sleep(1)
+        print("Uploaded:", uploaded)
