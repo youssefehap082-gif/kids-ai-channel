@@ -1,12 +1,15 @@
 requests
-moviepy==1.0.3
+moviepy
 pydub
 google-api-python-client
 google-auth-oauthlib
 google-auth
 Pillow
 python-dotenv
+replicate
+transformers
+torch
 opencv-python
 tqdm
 openai
-google-genai
+gTTS==2.5.4
