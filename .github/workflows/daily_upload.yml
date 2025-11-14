@@ -20,16 +20,24 @@ jobs:
 
       - name: Install FFmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
-
-      - name: Install dependencies
+        
+      - name: Install Dependencies (GLOBAL)
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install moviepy --force-reinstall
-          python -m pip install imageio imageio-ffmpeg
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install moviepy --force-reinstall
+          pip install imageio imageio-ffmpeg
 
-      - name: Fix Python Path
-        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+      # ---- اجبار GitHub إنه يضيف مسار moviepy ----
+      - name: Force Add moviepy to PYTHONPATH
+        run: |
+          MP_PATH=$(python3 -c "import moviepy, os; print(os.path.dirname(moviepy.__file__))")
+          echo "PYTHONPATH=$MP_PATH:$PYTHONPATH" >> $GITHUB_ENV
+          echo "Added moviepy path: $MP_PATH"
+
+      - name: Fix project path
+        run: |
+          echo "PYTHONPATH=$(pwd):$PYTHONPATH" >> $GITHUB_ENV
 
       - name: Run FULL AUTOMATION
         env:
