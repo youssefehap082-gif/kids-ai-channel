@@ -11,9 +11,8 @@ transformers
 torch
 opencv-python
 tqdm
-youtube-upload
 moviepy-ffmpeg
 openai
 gTTS
-aeneas   # optional: forced-alignment (may require extra system deps)
+aeneas
 ffmpeg-python
