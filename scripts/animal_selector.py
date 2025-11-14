@@ -28,3 +28,10 @@ def pick_n_unique(n=2):
     for p in picked:
         mark_used(p['name'])
     return picked
+    def get_used():
+    data = json.load(open(DATA / 'used_animals.json'))
+    if not isinstance(data, list):
+        data = []
+        json.dump(data, open(DATA / 'used_animals.json', 'w'), indent=2)
+    return data
+
