@@ -13,5 +13,4 @@ opencv-python
 tqdm
 openai
 gTTS
-aeneas
 ffmpeg-python
