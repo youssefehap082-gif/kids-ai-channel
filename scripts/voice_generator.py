@@ -1,58 +1,107 @@
 import os
-from scripts.moviepy.editor import (
-    VideoFileClip,
-    concatenate_videoclips,
-    AudioFileClip,
-    CompositeVideoClip,
-    TextClip
-)
-from scripts.utils import download_videos, merge_audio, save_temp
 from pathlib import Path
+from gtts import gTTS
+from moviepy.editor import AudioFileClip
+import requests
+import tempfile
 
-TEMP = Path("temp")
-TEMP.mkdir(exist_ok=True)
+TMP = Path(__file__).resolve().parent / "tmp_voice"
+TMP.mkdir(exist_ok=True)
 
-def assemble_long_video(clips, audio_path, captions):
-    video_clips = [VideoFileClip(clip).resize((1280, 720)) for clip in clips]
+# ============================================================
+# 1) Google gTTS (Always available fallback)
+# ============================================================
+def tts_google(text, gender="male"):
+    try:
+        tts = gTTS(text=text, lang="en")
+        out = TMP / "gtts_voice.mp3"
+        tts.save(out)
+        return out
+    except Exception as e:
+        raise RuntimeError(f"gTTS failed: {e}")
 
-    final_video = concatenate_videoclips(video_clips, method="compose")
-    audio = AudioFileClip(audio_path)
+# ============================================================
+# 2) OpenAI TTS Backup
+# ============================================================
+def tts_openai(text, gender="male"):
+    api = os.getenv("OPENAI_API_KEY")
+    if not api:
+        raise RuntimeError("OPENAI_API_KEY not set")
 
-    final_video = final_video.set_audio(audio)
+    url = "https://api.openai.com/v1/audio/speech"
+    voice = "alloy" if gender == "male" else "verse"
 
-    # Add captions
-    caption_clips = []
-    y = 600
+    payload = {
+        "model": "gpt-4o-mini-tts",
+        "voice": voice,
+        "input": text
+    }
 
-    for line in captions:
-        txt = TextClip(
-            txt=line,
-            fontsize=48,
-            color="white",
-            stroke_color="black",
-            stroke_width=1,
-            method="label"
-        ).set_duration(final_video.duration).set_position(("center", y))
-        caption_clips.append(txt)
-        y += 60
+    out = TMP / "openai_voice.mp3"
+    try:
+        r = requests.post(url, json=payload, headers={
+            "Authorization": f"Bearer {api}"
+        })
+        if r.status_code != 200:
+            raise RuntimeError(r.text)
 
-    output = CompositeVideoClip([final_video] + caption_clips)
+        with open(out, "wb") as f:
+            f.write(r.content)
 
-    out_path = save_temp("long_final.mp4")
-    output.write_videofile(out_path, fps=30, codec="libx264", audio_codec="aac")
+        return out
+    except Exception as e:
+        raise RuntimeError(f"OpenAI TTS failed: {e}")
 
-    return out_path
+# ============================================================
+# 3) ElevenLabs Backup
+# ============================================================
+def tts_elevenlabs(text, gender="male"):
+    api = os.getenv("ELEVEN_API_KEY")
+    if not api:
+        raise RuntimeError("ELEVEN_API_KEY not set")
 
+    voice_id = "pNInz6obpgDQGcFmaJgB"
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
-def assemble_short(clips, music_path):
-    video_clips = [VideoFileClip(clip).resize((1080, 1920)) for clip in clips]
+    out = TMP / "eleven_voice.mp3"
 
-    final_video = concatenate_videoclips(video_clips, method="compose")
+    try:
+        r = requests.post(
+            url,
+            json={"text": text},
+            headers={
+                "xi-api-key": api,
+                "Content-Type": "application/json"
+            }
+        )
 
-    music = AudioFileClip(music_path).volumex(0.8)
-    final_video = final_video.set_audio(music)
+        if r.status_code != 200:
+            raise RuntimeError(r.text)
 
-    out_path = save_temp("short_final.mp4")
-    final_video.write_videofile(out_path, fps=30, codec="libx264", audio_codec="aac")
+        with open(out, "wb") as f:
+            f.write(r.content)
 
-    return out_path
+        return out
+    except Exception as e:
+        raise RuntimeError(f"ElevenLabs failed: {e}")
+
+# ============================================================
+# Failover System
+# ============================================================
+def generate_voice_with_failover(text, preferred_gender="male"):
+    providers = [
+        ("elevenlabs", tts_elevenlabs),
+        ("openai", tts_openai),
+        ("gtts", tts_google),
+    ]
+
+    errors = []
+
+    for name, provider in providers:
+        try:
+            print(f"[TTS] Trying {name}...")
+            return provider(text, preferred_gender)
+        except Exception as e:
+            errors.append((name, str(e)))
+
+    raise RuntimeError(f"All TTS failed: {errors}")
