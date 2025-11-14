@@ -1,33 +1,10 @@
-name: Daily Upload
-
-on:
-  schedule:
-    - cron: "0 7 * * *"
-  workflow_dispatch:
-
-jobs:
-  job:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install FFmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v2
-
-      - name: Install Dependencies
+      - name: Fix Python Path
         run: |
-          python3 -m pip install --upgrade pip
-          pip install -r requirements.txt
+          echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
-      - name: Run Automation
+      - name: Run FULL AUTOMATION
         env:
+          PYTHONPATH: ${{ env.PYTHONPATH }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -45,4 +22,5 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
+          echo "PYTHONPATH is: $PYTHONPATH"
           python3 scripts/main.py
