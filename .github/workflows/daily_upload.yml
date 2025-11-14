@@ -1,9 +1,9 @@
 name: Daily Upload
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "0 7 * * *"
-  workflow_dispatch: {}
 
 jobs:
   job:
@@ -38,11 +38,6 @@ jobs:
           which python
           python --version
           pip list
-          python - << 'EOF'
-import sys, site
-print("Python PATH:", sys.path)
-print("Site packages:", site.getsitepackages())
-EOF
 
       - name: Fix Python Path
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
