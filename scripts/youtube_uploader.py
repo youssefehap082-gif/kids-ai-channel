@@ -68,8 +68,9 @@ class YouTubeUploader:
             # إذا كان شورت، نضيف إعدادات خاصة
             if content['is_short']:
                 body['status']['madeForKids'] = False
-                # إضافة #shorts للوصف للتأكد من التعرف عليه كشورت
-                body['snippet']['description'] = f"{content['description']}\n\n#shorts #short"
+                # إضافة #shorts للتأكد من التعرف عليه كشورت
+                if '#shorts' not in body['snippet']['description']:
+                    body['snippet']['description'] = f"{body['snippet']['description']}\n\n#shorts"
             
             from googleapiclient.http import MediaFileUpload
             
