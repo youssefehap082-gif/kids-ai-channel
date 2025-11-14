@@ -1,8 +1,51 @@
-{
-  "mammals": ["Lion", "Elephant", "Tiger", "Giraffe", "Wolf", "Bear", "Kangaroo", "Panda", "Zebra", "Fox", "Deer", "Horse", "Donkey", "Rabbit", "Raccoon"],
-  "reptiles": ["Cobra", "Python", "Chameleon", "Komodo Dragon", "Alligator", "Turtle", "Crocodile", "Iguana", "Gecko", "Snake"],
-  "birds": ["Eagle", "Parrot", "Penguin", "Owl", "Flamingo", "Peacock", "Hawk", "Swan", "Pigeon", "Sparrow"],
-  "fish": ["Shark", "Dolphin", "Clownfish", "Goldfish", "Piranha", "Manta Ray", "Whale", "Octopus", "Squid", "Jellyfish"],
-  "insects": ["Butterfly", "Bee", "Ant", "Spider", "Dragonfly", "Ladybug", "Grasshopper", "Beetle", "Mosquito", "Fly"],
-  "others": ["Hedgehog", "Squirrel", "Bat", "Frog", "Toad", "Salamander", "Newt"]
-}
+[
+  {
+    "name": "lion",
+    "common_names": [
+      "lion"
+    ],
+    "video_search_terms": [
+      "lion",
+      "male lion",
+      "lion hunting"
+    ],
+    "tags": [
+      "lion",
+      "big cat",
+      "savannah"
+    ],
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "name": "elephant",
+    "common_names": [
+      "elephant"
+    ],
+    "video_search_terms": [
+      "elephant",
+      "elephant herd"
+    ],
+    "tags": [
+      "elephant",
+      "wildlife",
+      "savannah"
+    ]
+  },
+  {
+    "name": "king cobra",
+    "common_names": [
+      "king cobra",
+      "cobra"
+    ],
+    "video_search_terms": [
+      "king cobra",
+      "cobra snake"
+    ],
+    "tags": [
+      "snake",
+      "venomous"
+    ]
+  }
+]
