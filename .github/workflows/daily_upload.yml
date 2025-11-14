@@ -35,16 +35,6 @@ jobs:
           pip install moviepy --force-reinstall
           pip install imageio imageio-ffmpeg
 
-      - name: Debug moviepy
-        run: |
-          source venv/bin/activate
-          python - << 'EOF'
-import moviepy
-import sys
-print("MoviePy:", moviepy.__file__)
-print("PATH:", sys.path)
-EOF
-
       - name: Fix Python Path
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
