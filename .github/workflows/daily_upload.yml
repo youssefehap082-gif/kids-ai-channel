@@ -1,32 +1,48 @@
 name: Daily Upload
 
 on:
-  workflow_dispatch:
   schedule:
     - cron: "0 7 * * *"
+  workflow_dispatch:
 
 jobs:
   job:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - uses: FedericoCarboni/setup-ffmpeg@v2
+      - name: Install FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v2
 
-      - name: Install deps
+      - name: Install Dependencies
         run: |
-          pip install --upgrade pip
+          python3 -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Fix PYTHONPATH
-        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-
-      - name: Run automation
+      - name: Run Automation
         env:
-          (السيكرت…)
-        run: python3 scripts/main.py
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
+          VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          python3 scripts/main.py
