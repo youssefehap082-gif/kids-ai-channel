@@ -2,7 +2,7 @@ name: Daily Upload
 
 on:
   schedule:
-    - cron: '0 7 * * *'
+    - cron: "0 7 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -21,48 +21,32 @@ jobs:
       - name: Install FFmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
 
-      # ---------------------------------------------------
-      # Create & activate virtual environment
-      # ---------------------------------------------------
       - name: Create virtual environment
         run: |
           python3 -m venv venv
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
 
-      # ---------------------------------------------------
-      # Install all dependencies inside venv
-      # ---------------------------------------------------
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install moviepy --force-reinstall
 
-      # ---------------------------------------------------
-      # Debug: Show installed packages
-      # ---------------------------------------------------
       - name: Debug Python Packages
         run: |
           which python
           python --version
           pip list
           python - << 'EOF'
-import sys, site, os
+import sys, site
 print("Python PATH:", sys.path)
 print("Site packages:", site.getsitepackages())
 EOF
 
-      # ---------------------------------------------------
-      # Fix Python Path for local modules
-      # ---------------------------------------------------
       - name: Fix Python Path
-        run: |
-          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-      # ---------------------------------------------------
-      # Run full automation
-      # ---------------------------------------------------
       - name: Run FULL PRODUCTION Automation
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -82,5 +66,4 @@ EOF
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           TEST_RUN: "false"
-        run: |
-          python scripts/main.py
+        run: python scripts/main.py
