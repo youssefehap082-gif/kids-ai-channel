@@ -28,7 +28,6 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Fix module path
       - name: Fix Python path
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
@@ -38,11 +37,6 @@ jobs:
           COVERRAPIKEY: ${{ secrets.COVERRAPIKEY }}
           ELEVENAPIKEY: ${{ secrets.ELEVENAPIKEY }}
           HFAPITOKEN: ${{ secrets.HFAPITOKEN }}
-          OPENAIAPIKEY: ${{ secrets.OPENAIAPIKEY }}
-
-          # 👇 هذا أهم سطر لإصلاح خطأ OpenAI (401)
-          OPENAI_API_KEY: ${{ secrets.OPENAIAPIKEY }}
-
           PEXELSAPIKEY: ${{ secrets.PEXELSAPIKEY }}
           PIXABAYAPIKEY: ${{ secrets.PIXABAYAPIKEY }}
           REPLICATEAPITOKEN: ${{ secrets.REPLICATEAPITOKEN }}
@@ -52,7 +46,11 @@ jobs:
           YTCLIENTID: ${{ secrets.YTCLIENTID }}
           YTCLIENTSECRET: ${{ secrets.YTCLIENTSECRET }}
           YTREFRESHTOKEN: ${{ secrets.YTREFRESHTOKEN }}
-          OPENTTS_URL: ${{ secrets.OPENTTS_URL }}
+
+          # 🔥🔥🔥 أهم سطر 🔥🔥🔥
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
           TEST_RUN: "true"
+
         run: |
           python3 scripts/main.py
