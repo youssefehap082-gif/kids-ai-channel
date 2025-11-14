@@ -21,13 +21,20 @@ jobs:
       - name: Install FFmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
 
-      - name: Install dependencies
+      - name: Install base dependencies
         run: |
           pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
-      - name: Force install MoviePy clean
-        run: pip install moviepy --force-reinstall
+      # ---------------------------------------------------
+      # THE FIX: Install MoviePy from GitHub source
+      # ---------------------------------------------------
+      - name: Install MoviePy Portable
+        run: |
+          pip uninstall -y moviepy || true
+          git clone https://github.com/Zulko/moviepy.git
+          cd moviepy
+          pip install .
 
       - name: Fix Python Path
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
