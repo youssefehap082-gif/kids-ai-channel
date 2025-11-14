@@ -1,7 +1,68 @@
+name: Daily Upload
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v2
+
+      # ============================================================
+      # Create virtual environment
+      # ============================================================
+      - name: Create venv
+        run: |
+          python3 -m venv venv
+          echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
+          echo "$(pwd)/venv/bin" >> $GITHUB_PATH
+
+      # ============================================================
+      # Install dependencies inside venv
+      # ============================================================
+      - name: Install dependencies
+        run: |
+          source venv/bin/activate
+          pip install --upgrade pip wheel setuptools
+          pip install -r requirements.txt
+          pip install moviepy --force-reinstall
+          pip install imageio imageio-ffmpeg
+
+      # ============================================================
+      # Debug: ensure moviepy exists
+      # ============================================================
+      - name: Debug moviepy
+        run: |
+          source venv/bin/activate
+          python - << 'EOF'
+import moviepy, sys
+print("MoviePy path:", moviepy.__file__)
+print("Python path:", sys.path)
+EOF
+
+      # ============================================================
+      # Fix Python Path (IMPORTANT)
+      # ============================================================
       - name: Fix Python Path
         run: |
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
+      # ============================================================
+      # RUN FULL SYSTEM
+      # ============================================================
       - name: Run FULL AUTOMATION
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
@@ -22,5 +83,6 @@
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
+          source venv/bin/activate
           echo "PYTHONPATH is: $PYTHONPATH"
           python3 scripts/main.py
