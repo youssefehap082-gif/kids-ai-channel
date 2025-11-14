@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -20,7 +21,7 @@ jobs:
 
       - name: Install FFmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
-        
+
       - name: Install Dependencies (GLOBAL)
         run: |
           pip install --upgrade pip
@@ -28,16 +29,19 @@ jobs:
           pip install moviepy --force-reinstall
           pip install imageio imageio-ffmpeg
 
-      # ---- اجبار GitHub إنه يضيف مسار moviepy ----
-      - name: Force Add moviepy to PYTHONPATH
+      # ----------- حل نهائي 100%: نسخ moviepy داخل scripts/vendor ----------
+      - name: Vendor moviepy package directly into project
         run: |
+          mkdir -p scripts/vendor
           MP_PATH=$(python3 -c "import moviepy, os; print(os.path.dirname(moviepy.__file__))")
-          echo "PYTHONPATH=$MP_PATH:$PYTHONPATH" >> $GITHUB_ENV
-          echo "Added moviepy path: $MP_PATH"
+          echo "Found moviepy at: $MP_PATH"
+          cp -r $MP_PATH scripts/vendor/moviepy
 
-      - name: Fix project path
+      # ----------- إضافة vendor لبايثون -----------
+      - name: Set PYTHONPATH to include vendor folder
         run: |
-          echo "PYTHONPATH=$(pwd):$PYTHONPATH" >> $GITHUB_ENV
+          echo "PYTHONPATH=$(pwd)/scripts/vendor:$PYTHONPATH" >> $GITHUB_ENV
+          echo "Added vendor moviepy."
 
       - name: Run FULL AUTOMATION
         env:
@@ -58,4 +62,5 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           TEST_RUN: "false"
-        run: python3 scripts/main.py
+        run: |
+          python3 scripts/main.py
