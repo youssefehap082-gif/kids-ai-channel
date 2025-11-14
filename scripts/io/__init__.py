@@ -1,3 +1,3 @@
 """
-Classes and methods for reading, writing and previewing video files.
+Class and methods to read, write, preview audiofiles.
 """

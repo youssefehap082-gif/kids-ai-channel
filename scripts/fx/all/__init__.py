@@ -1,14 +1,13 @@
 """
 Loads all the fx !
 Usage:
-import moviepy.video.fx.all as vfx
-clip = vfx.resize(some_clip, width=400)
-clip = vfx.mirror_x(some_clip)
+import moviepy.audio.fx.all as afx
+audio_clip = afx.volume_x(some_clip, .5)
 """
 
 import pkgutil
 
-import moviepy.video.fx as fx
+import moviepy.audio.fx as fx
 
 __all__ = [name for _, name, _ in pkgutil.iter_modules(
     fx.__path__) if name != "all"]
