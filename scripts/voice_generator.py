@@ -1,66 +1,58 @@
-import os, time, requests
+import os
+from scripts.moviepy.editor import (
+    VideoFileClip,
+    concatenate_videoclips,
+    AudioFileClip,
+    CompositeVideoClip,
+    TextClip
+)
+from scripts.utils import download_videos, merge_audio, save_temp
 from pathlib import Path
-from gtts import gTTS
 
-OUT = Path(__file__).resolve().parent / 'tmp'
-OUT.mkdir(exist_ok=True)
+TEMP = Path("temp")
+TEMP.mkdir(exist_ok=True)
 
-ELEVEN = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENAPIKEY') or os.getenv('ELEVENAPIKEY')
-OPENAI_KEY = os.getenv('OPENAI_API_KEY') or os.getenv('OPENAIAPIKEY') or os.getenv('OPENAI_APIKEY')
+def assemble_long_video(clips, audio_path, captions):
+    video_clips = [VideoFileClip(clip).resize((1280, 720)) for clip in clips]
 
-def eleven_tts(text, voice='alloy', out_path=None):
-    if not ELEVEN:
-        raise RuntimeError('ELEVEN_API_KEY missing')
-    if out_path is None:
-        out_path = OUT / f'voice_eleven_{int(time.time())}.mp3'
-    url = f'https://api.elevenlabs.io/v1/text-to-speech/{voice}'
-    headers = {'xi-api-key': ELEVEN, 'Content-Type': 'application/json'}
-    payload = {'text': text, 'voice_settings': {'stability': 0.6, 'similarity_boost': 0.75}}
-    r = requests.post(url, json=payload, headers=headers, stream=True, timeout=60)
-    r.raise_for_status()
-    with open(out_path, 'wb') as f:
-        for chunk in r.iter_content(1024 * 32):
-            f.write(chunk)
+    final_video = concatenate_videoclips(video_clips, method="compose")
+    audio = AudioFileClip(audio_path)
+
+    final_video = final_video.set_audio(audio)
+
+    # Add captions
+    caption_clips = []
+    y = 600
+
+    for line in captions:
+        txt = TextClip(
+            txt=line,
+            fontsize=48,
+            color="white",
+            stroke_color="black",
+            stroke_width=1,
+            method="label"
+        ).set_duration(final_video.duration).set_position(("center", y))
+        caption_clips.append(txt)
+        y += 60
+
+    output = CompositeVideoClip([final_video] + caption_clips)
+
+    out_path = save_temp("long_final.mp4")
+    output.write_videofile(out_path, fps=30, codec="libx264", audio_codec="aac")
+
     return out_path
 
-def openai_tts(text, out_path=None):
-    if not OPENAI_KEY:
-        raise RuntimeError('OPENAI_KEY missing')
-    if out_path is None:
-        out_path = OUT / f'voice_openai_{int(time.time())}.mp3'
-    url = 'https://api.openai.com/v1/audio/speech'
-    headers = {'Authorization': f'Bearer {OPENAI_KEY}', 'Content-Type': 'application/json'}
-    payload = {"model": "gpt-4o-mini-tts", "voice": "alloy", "input": text}
-    r = requests.post(url, json=payload, headers=headers, stream=True, timeout=60)
-    r.raise_for_status()
-    with open(out_path, 'wb') as f:
-        for chunk in r.iter_content(1024 * 32):
-            f.write(chunk)
-    return out_path
 
-def gtts_fallback(text, out_path=None):
-    if out_path is None:
-        out_path = OUT / f"voice_gtts_{int(time.time())}.mp3"
-    tts = gTTS(text=text, lang='en')
-    tts.save(out_path)
-    return out_path
+def assemble_short(clips, music_path):
+    video_clips = [VideoFileClip(clip).resize((1080, 1920)) for clip in clips]
 
-def generate_voice_with_failover(text, preferred_gender='male'):
-    voices = {'male': 'alloy', 'female': 'sofia'}
-    errors = []
-    # ElevenLabs
-    try:
-        return eleven_tts(text, voice=voices.get(preferred_gender,'alloy'))
-    except Exception as e:
-        errors.append(("ElevenLabs", str(e)))
-    # OpenAI
-    try:
-        return openai_tts(text)
-    except Exception as e:
-        errors.append(("OpenAI", str(e)))
-    # gTTS fallback
-    try:
-        return gtts_fallback(text)
-    except Exception as e:
-        errors.append(("gTTS", str(e)))
-    raise RuntimeError(f"All TTS failed: {errors}")
+    final_video = concatenate_videoclips(video_clips, method="compose")
+
+    music = AudioFileClip(music_path).volumex(0.8)
+    final_video = final_video.set_audio(music)
+
+    out_path = save_temp("short_final.mp4")
+    final_video.write_videofile(out_path, fps=30, codec="libx264", audio_codec="aac")
+
+    return out_path
