@@ -21,19 +21,13 @@ jobs:
       - name: Install FFmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
 
-      # ---------------------------------------------------
-      # Create and activate virtual environment
-      # ---------------------------------------------------
       - name: Create venv
         run: |
           python3 -m venv venv
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
 
-      # ---------------------------------------------------
-      # Install dependencies (INSIDE VENV!)
-      # ---------------------------------------------------
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
@@ -41,29 +35,14 @@ jobs:
           pip install moviepy --force-reinstall
           pip install imageio imageio-ffmpeg
 
-      # ---------------------------------------------------
-      # Debug: ensure moviepy installed
-      # ---------------------------------------------------
-      - name: Debug moviepy installation
+      - name: Verify moviepy
         run: |
           source venv/bin/activate
-          python - << 'EOF'
-import moviepy
-import pkgutil
-print("moviepy FOUND:", moviepy.__file__)
-print("Available modules:", [m.name for m in pkgutil.iter_modules()])
-EOF
+          python -c "import moviepy; print('MoviePy loaded from:', moviepy.__file__)"
 
-      # ---------------------------------------------------
-      # Fix module import path for scripts/
-      # ---------------------------------------------------
-      - name: Fix Python Path
-        run: |
-          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+      - name: Fix PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-      # ---------------------------------------------------
-      # Run MAIN automation
-      # ---------------------------------------------------
       - name: Run FULL AUTOMATION
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
