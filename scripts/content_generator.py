@@ -51,7 +51,7 @@ class ContentGenerator:
                     messages=[{
                         "role": "user",
                         "content": f"""Generate 10 amazing and educational facts about {animal} that will surprise viewers.
-                        Make them engaging, viral-worthy, and perfect for YouTube shorts.
+                        Make them engaging, viral-worthy, and perfect for YouTube.
                         Return as JSON array of strings."""
                     }],
                     temperature=0.8
@@ -69,7 +69,7 @@ class ContentGenerator:
     
     def _generate_long_script(self, animal, facts):
         """إنشاء سيناريو للفيديو الطويل"""
-        script = f"Welcome to our wildlife exploration! Today, we dive into the incredible world of {animal}s. "
+        script = f"Welcome to Animal Facts Daily! Today, we explore the incredible world of {animal}s. "
         script += "Get ready to be amazed by these fascinating facts: "
         
         for i, fact in enumerate(facts, 1):
@@ -136,11 +136,11 @@ class ContentGenerator:
             title = f"10 Incredible {animal} Facts You Won't Believe! | Wildlife Documentary"
         
         description = f"Discover the amazing world of {animal}s! In this video, we explore fascinating facts about {animal} behavior, habitat, and unique characteristics that will surprise you.\n\n"
-        description += "🔔 Subscribe for daily animal facts: https://www.youtube.com/@AnimalFactsDaily\n"
+        description += "🔔 Subscribe for daily animal facts\n"
         description += "👍 Like this video if you learned something new!\n"
         description += "💬 Comment which fact surprised you most!\n\n"
         description += "📱 Follow us for more wildlife content!\n\n"
-        description += "#animals #wildlife #nature #education #animalfacts"
+        description += f"#{animal} #animals #wildlife #nature #education #animalfacts"
         
         tags = [
             animal, f"{animal} facts", "animals", "wildlife", "nature", 
