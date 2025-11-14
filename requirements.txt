@@ -13,3 +13,5 @@ opencv-python
 tqdm
 openai
 gTTS==2.5.4
+imageio
+imageio-ffmpeg
