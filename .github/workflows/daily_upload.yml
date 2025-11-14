@@ -2,8 +2,8 @@ name: Daily Upload
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # مواعيد النشر اليومية (UTC)
-  workflow_dispatch: {}     # تشغيل يدوي
+    - cron: '0 8 * * *'
+  workflow_dispatch: {}
 
 jobs:
   build-and-run:
@@ -28,7 +28,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 👇 أهم خطوة لحل مشكلة ModuleNotFoundError
+      # Fix module path
       - name: Fix Python path
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
@@ -39,6 +39,10 @@ jobs:
           ELEVENAPIKEY: ${{ secrets.ELEVENAPIKEY }}
           HFAPITOKEN: ${{ secrets.HFAPITOKEN }}
           OPENAIAPIKEY: ${{ secrets.OPENAIAPIKEY }}
+
+          # 👇 هذا أهم سطر لإصلاح خطأ OpenAI (401)
+          OPENAI_API_KEY: ${{ secrets.OPENAIAPIKEY }}
+
           PEXELSAPIKEY: ${{ secrets.PEXELSAPIKEY }}
           PIXABAYAPIKEY: ${{ secrets.PIXABAYAPIKEY }}
           REPLICATEAPITOKEN: ${{ secrets.REPLICATEAPITOKEN }}
@@ -49,6 +53,6 @@ jobs:
           YTCLIENTSECRET: ${{ secrets.YTCLIENTSECRET }}
           YTREFRESHTOKEN: ${{ secrets.YTREFRESHTOKEN }}
           OPENTTS_URL: ${{ secrets.OPENTTS_URL }}
-          TEST_RUN: 'true'   # أول تشغيل فقط → فيديو واحد + شورت واحد
+          TEST_RUN: "true"
         run: |
           python3 scripts/main.py
