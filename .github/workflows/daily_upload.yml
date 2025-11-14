@@ -1,14 +1,16 @@
 name: Daily Upload
+
 on:
   schedule:
-    - cron: '0 8 * * *' # UTC schedule (you can change timezone to best posting times)
-  workflow_dispatch: {}
+    - cron: '0 8 * * *'   # مواعيد النشر اليومية (UTC)
+  workflow_dispatch: {}     # تشغيل يدوي
 
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -22,7 +24,13 @@ jobs:
           sudo apt install -y ffmpeg
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 👇 أهم خطوة لحل مشكلة ModuleNotFoundError
+      - name: Fix Python path
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
       - name: Run automation (test mode)
         env:
@@ -41,6 +49,6 @@ jobs:
           YTCLIENTSECRET: ${{ secrets.YTCLIENTSECRET }}
           YTREFRESHTOKEN: ${{ secrets.YTREFRESHTOKEN }}
           OPENTTS_URL: ${{ secrets.OPENTTS_URL }}
-          TEST_RUN: 'true' # set to 'false' for full daily run
+          TEST_RUN: 'true'   # أول تشغيل فقط → فيديو واحد + شورت واحد
         run: |
           python3 scripts/main.py
