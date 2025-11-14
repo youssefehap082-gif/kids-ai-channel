@@ -2,7 +2,6 @@ name: Daily YouTube Automation
 
 on:
   schedule:
-    # أفضل أوقات النشر للجمهور الأجنبي (بتوقيت UTC)
     - cron: '0 14 * * *'  # 2:00 PM UTC (10:00 AM EST)
     - cron: '0 20 * * *'  # 8:00 PM UTC (4:00 PM EST)
   workflow_dispatch:
@@ -36,16 +35,16 @@ jobs:
         sudo apt-get install -y python3-pip
         sudo apt-get install -y libimage-exiftool-perl
         sudo apt-get install -y libopencv-dev
+        sudo apt-get install -y imagemagick
         python -m pip install --upgrade pip
         
     - name: Install Python dependencies
       run: |
         pip install -r requirements.txt
         pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
-        pip install moviepy --upgrade
-        pip install pillow --upgrade
-        pip install opencv-python
-        pip install requests
+        pip install moviepy --upgrade --force-reinstall
+        pip install imageio imageio-ffmpeg
+        pip install opencv-python pillow pydub gtts
         
     - name: Create necessary directories
       run: |
@@ -79,6 +78,10 @@ jobs:
         }
         EOF
         
+    - name: Test moviepy installation
+      run: |
+        python -c "from moviepy.editor import VideoFileClip; print('✅ moviepy installed successfully')"
+        
     - name: Run YouTube Automation
       id: automation
       env:
@@ -106,11 +109,8 @@ jobs:
       run: |
         echo "=== نتائج الرفع على اليوتيوب ==="
         if [ -f "logs/automation.log" ]; then
-          echo "📋 آخر 20 سطر من السجل:"
-          tail -20 logs/automation.log
-          echo ""
-          echo "🎯 الفيديوهات المرفوعة:"
-          grep -E "(✅ تم رفع|🔗 الرابط:)" logs/automation.log || echo "لا توجد فيديوهات مرفوعة"
+          echo "📋 آخر 30 سطر من السجل:"
+          tail -30 logs/automation.log
         else
           echo "❌ لا يوجد سجل تنفيذ"
         fi
@@ -119,7 +119,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: youtube-results-${{ github.run_id }}-${{ github.event.inputs.test_mode || 'test' }}
+        name: youtube-results-${{ github.run_id }}
         path: |
           logs/
         retention-days: 7
