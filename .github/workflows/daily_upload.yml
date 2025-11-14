@@ -4,26 +4,40 @@ on:
   schedule:
     - cron: '0 7 * * *'
   workflow_dispatch: {}
+
 jobs:
   job:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      - name: Install ffmpeg
-        run: |
-          sudo apt update
-          sudo apt install -y ffmpeg
+
+      # ---------------------------------------------------
+      # Install FFmpeg the correct + stable way
+      # ---------------------------------------------------
+      - name: Install FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v2
+
+      # ---------------------------------------------------
+      # Install Python libs
+      # ---------------------------------------------------
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+
       - name: Fix Python Path
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+
+      # ---------------------------------------------------
+      # Run FULL Production Automation
+      # ---------------------------------------------------
       - name: Run FULL PRODUCTION Automation
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
