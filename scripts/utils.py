@@ -1,23 +1,20 @@
-# utils.py - helpers
-import os, json, requests
-from pathlib import Path
+from moviepy.audio.io.AudioFileClip import AudioFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.video.VideoClip import ImageClip
 
-BASE = Path(__file__).resolve().parent
-ROOT = BASE.parent
-DATA = ROOT / 'data'
-ASSETS = ROOT / 'assets'
-ASSETS.mkdir(exist_ok=True)
 
-def download_file(url, dest: Path):
-    resp = requests.get(url, stream=True, timeout=30)
-    resp.raise_for_status()
-    with open(dest, 'wb') as f:
-        for chunk in resp.iter_content(1024*32):
-            f.write(chunk)
-    return dest
+CLIP_TYPES = {
+    'audio': AudioFileClip,
+    'video': VideoFileClip,
+    'image': ImageClip,
+}
 
-def read_json(path):
-    return json.loads(open(path).read())
-
-def write_json(path, data):
-    open(path, 'w').write(json.dumps(data, indent=2))
+def close_all_clips(objects='globals', types=('audio', 'video', 'image')):
+    if objects == 'globals':
+        objects = globals()
+    if hasattr(objects, 'values'):
+        objects = objects.values()
+    types_tuple = tuple(CLIP_TYPES[key] for key in types)
+    for obj in objects:
+        if isinstance(obj, types_tuple):
+            obj.close()
