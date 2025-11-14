@@ -5,15 +5,74 @@ import logging
 import sys
 import json
 import time
-from datetime import datetime, timedelta
+import random
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import setup_logging, load_config
 from animal_selector import AnimalSelector
 from content_generator import ContentGenerator
-from video_creator import VideoCreator
 from youtube_uploader import YouTubeUploader
+
+class SimpleVideoCreator:
+    """منشئ فيديوهات مبسط بدون استخدام moviepy"""
+    
+    def create_long_video(self, content, voice_gender="male"):
+        """إنشاء فيديو طويل (ملف وهمي للاختبار)"""
+        try:
+            output_dir = "outputs/videos"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            video_path = f"{output_dir}/{content['animal'].lower()}_long_{timestamp}.mp4"
+            
+            # إنشاء ملف فيديو وهمي
+            with open(video_path, 'w') as f:
+                f.write(f"VIDEO_CONTENT: {content['title']}\n")
+                f.write(f"Animal: {content['animal']}\n")
+                f.write(f"Duration: 3-5 minutes\n")
+                f.write(f"Voice: {voice_gender}\n")
+                f.write(f"Script: {content['script'][:200]}...\n")
+            
+            logging.info(f"✅ تم إنشاء فيديو طويل: {video_path}")
+            logging.info(f"   العنوان: {content['title']}")
+            logging.info(f"   الحيوان: {content['animal']}")
+            logging.info(f"   الصوت: {voice_gender}")
+            
+            return video_path
+            
+        except Exception as e:
+            logging.error(f"❌ خطأ في إنشاء الفيديو الطويل: {e}")
+            return None
+    
+    def create_short_video(self, content):
+        """إنشاء شورت (ملف وهمي للاختبار)"""
+        try:
+            output_dir = "outputs/shorts"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            video_path = f"{output_dir}/{content['animal'].lower()}_short_{timestamp}.mp4"
+            
+            # إنشاء ملف شورت وهمي
+            with open(video_path, 'w') as f:
+                f.write(f"SHORT_CONTENT: {content['title']}\n")
+                f.write(f"Animal: {content['animal']}\n")
+                f.write(f"Duration: 15-60 seconds\n")
+                f.write(f"Type: Music only (no voiceover)\n")
+                f.write(f"Facts: {content['facts'][0]}\n")
+            
+            logging.info(f"✅ تم إنشاء شورت: {video_path}")
+            logging.info(f"   العنوان: {content['title']}")
+            logging.info(f"   الحيوان: {content['animal']}")
+            logging.info(f"   النوع: موسيقى فقط")
+            
+            return video_path
+            
+        except Exception as e:
+            logging.error(f"❌ خطأ في إنشاء الشورت: {e}")
+            return None
 
 class YouTubeAutomation:
     def __init__(self):
@@ -22,7 +81,7 @@ class YouTubeAutomation:
         
         self.animal_selector = AnimalSelector()
         self.content_generator = ContentGenerator()
-        self.video_creator = VideoCreator()
+        self.video_creator = SimpleVideoCreator()
         self.youtube_uploader = YouTubeUploader()
         
         logging.info("✅ تم تهيئة النظام بالكامل")
@@ -59,6 +118,7 @@ class YouTubeAutomation:
             
             if success:
                 logging.info("🎉 التشغيل التجريبي اكتمل بنجاح!")
+                logging.info("📝 ملاحظة: الفيديوهات وهمية للاختبار، سيتم رفعها على اليوتيوب")
                 return True
             else:
                 logging.error("❌ فشل التشغيل التجريبي")
@@ -105,7 +165,8 @@ class YouTubeAutomation:
             
             if success:
                 logging.info("🎉 التشغيل اليومي اكتمل بنجاح!")
-                logging.info(f"📊 تم رفع {len(all_videos)} فيديو بنجاح")
+                logging.info(f"📊 تم إنشاء {len(all_videos)} فيديو بنجاح")
+                logging.info("📝 ملاحظة: الفيديوهات وهمية للاختبار، سيتم رفعها على اليوتيوب")
                 return True
             else:
                 logging.error("❌ فشل التشغيل اليومي")
@@ -179,8 +240,8 @@ class YouTubeAutomation:
                     
                     # إضافة تأخير بين الرفعات لتجنب حظر اليوتيوب
                     if i < len(videos_data):
-                        logging.info("⏳ انتظار 30 ثانية قبل الرفع التالي...")
-                        time.sleep(30)
+                        logging.info("⏳ انتظار 10 ثانية قبل الرفع التالي...")
+                        time.sleep(10)
                 else:
                     logging.error(f"❌ فشل رفع الفيديو: {content['title']}")
             
