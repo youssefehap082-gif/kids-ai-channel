@@ -29,10 +29,53 @@ jobs:
           pip install -r requirements.txt
 
       - name: Fix Python path
-        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-      - name: Run automation (test mode)
+      # -----------------------------
+      # DEBUG – Print key lengths
+      # -----------------------------
+      - name: Debug AI Keys
+        run: |
+          echo "---------------- DEBUG KEYS ----------------"
+          echo "GROQ_API_KEY length: ${#GROQ_API_KEY}"
+          echo "GEMINI_API_KEY length: ${#GEMINI_API_KEY}"
+          echo "OPENAI_API_KEY length: ${#OPENAI_API_KEY}"
+          echo "--------------------------------------------"
         env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      # -----------------------------
+      # FAIL if keys missing
+      # -----------------------------
+      - name: Validate Keys
+        run: |
+          if [ -z "${GROQ_API_KEY}" ]; then
+            echo "::error::GROQ_API_KEY IS MISSING IN GITHUB SECRETS"
+            exit 1
+          fi
+
+          if [ -z "${GEMINI_API_KEY}" ]; then
+            echo "::warning::GEMINI_API_KEY is missing (fallback disabled)"
+          fi
+
+          if [ -z "${OPENAI_API_KEY}" ]; then
+            echo "::warning::OPENAI_API_KEY is missing (final fallback disabled)"
+          fi
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      # -----------------------------
+      # RUN MAIN AUTOMATION
+      # -----------------------------
+      - name: Run automation
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLOUDINARYAPIKEY: ${{ secrets.CLOUDINARYAPIKEY }}
           COVERRAPIKEY: ${{ secrets.COVERRAPIKEY }}
           ELEVENAPIKEY: ${{ secrets.ELEVENAPIKEY }}
@@ -46,11 +89,5 @@ jobs:
           YTCLIENTID: ${{ secrets.YTCLIENTID }}
           YTCLIENTSECRET: ${{ secrets.YTCLIENTSECRET }}
           YTREFRESHTOKEN: ${{ secrets.YTREFRESHTOKEN }}
-
-          # 🔥🔥🔥 أهم سطر 🔥🔥🔥
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
           TEST_RUN: "true"
-
-        run: |
-          python3 scripts/main.py
+        run: python3 scripts/main.py
