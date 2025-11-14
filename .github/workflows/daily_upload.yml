@@ -29,18 +29,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          source venv/bin/activate
-          pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install moviepy --force-reinstall
-          pip install imageio imageio-ffmpeg
+          venv/bin/pip install --upgrade pip setuptools wheel
+          venv/bin/pip install -r requirements.txt
+          venv/bin/pip install moviepy --force-reinstall
+          venv/bin/pip install imageio imageio-ffmpeg
 
-      - name: Verify moviepy
+      - name: Debug moviepy
         run: |
-          source venv/bin/activate
-          python -c "import moviepy; print('MoviePy loaded from:', moviepy.__file__)"
+          venv/bin/python3 - << 'EOF'
+import moviepy
+print("MoviePy OK at:", moviepy.__file__)
+EOF
 
-      - name: Fix PYTHONPATH
+      - name: Fix Python Path
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
       - name: Run FULL AUTOMATION
@@ -63,5 +64,4 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           TEST_RUN: "false"
         run: |
-          source venv/bin/activate
-          python3 scripts/main.py
+          venv/bin/python3 scripts/main.py
