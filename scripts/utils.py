@@ -1,49 +1,27 @@
-import json
-import logging
+# utils.py - helpers for API calls, downloading assets, small utilities
 import os
-from datetime import datetime
+import requests
+from pathlib import Path
+import json
 
-def setup_logging():
-    """إعداد نظام التسجيل"""
-    os.makedirs('logs', exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('logs/automation.log', encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
-    logging.info("=" * 60)
-    logging.info("🚀 نظام أتمتة قناة يوتيوب الحيوانات - الإصدار النهائي")
-    logging.info("=" * 60)
+BASE = Path(__file__).resolve().parent
+ROOT = BASE.parent
+DATA = ROOT / 'data'
+ASSETS = ROOT / 'assets'
+ASSETS.mkdir(exist_ok=True)
 
-def load_json(file_path, default=None):
-    """تحميل ملف JSON"""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        logging.warning(f"تعذر تحميل {file_path}: {e}")
-        return default if default is not None else {}
+HEADERS = {'User-Agent': 'YT-Automation/1.0'}
 
-def save_json(file_path, data):
-    """حفظ بيانات لملف JSON"""
-    try:
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        logging.info(f"تم حفظ البيانات في: {file_path}")
-    except Exception as e:
-        logging.error(f"خطأ في حفظ {file_path}: {e}")
+def download_file(url, dest: Path):
+    resp = requests.get(url, stream=True, headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+    with open(dest, 'wb') as f:
+        for chunk in resp.iter_content(1024 * 32):
+            f.write(chunk)
+    return dest
 
-def load_config():
-    """تحميل الإعدادات"""
-    return {
-        "max_videos_per_day": 2,
-        "max_shorts_per_day": 5,
-        "video_duration": {"min": 180, "max": 300},  # 3-5 دقائق
-        "short_duration": {"min": 15, "max": 60},    # 15-60 ثانية
-        "target_languages": ["en"],
-        "channel_name": "Animal Facts Daily"
-    }
+def read_json(path):
+    return json.loads(open(path).read())
+
+def write_json(path, data):
+    open(path, 'w').write(json.dumps(data, indent=2))
