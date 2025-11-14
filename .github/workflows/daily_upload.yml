@@ -1,125 +1,46 @@
-name: Daily YouTube Automation
-
+name: Daily Upload
 on:
   schedule:
-    - cron: '0 14 * * *'  # 2:00 PM UTC (10:00 AM EST)
-    - cron: '0 20 * * *'  # 8:00 PM UTC (4:00 PM EST)
-  workflow_dispatch:
-    inputs:
-      test_mode:
-        description: 'وضع التشغيل'
-        required: true
-        default: 'test'
-        type: choice
-        options:
-        - 'test'
-        - 'full'
+    - cron: '0 8 * * *' # UTC schedule (you can change timezone to best posting times)
+  workflow_dispatch: {}
 
 jobs:
-  generate-and-upload:
+  build-and-run:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
-        sudo apt-get install -y python3-pip
-        sudo apt-get install -y libimage-exiftool-perl
-        sudo apt-get install -y libopencv-dev
-        sudo apt-get install -y imagemagick
-        python -m pip install --upgrade pip
-        
-    - name: Install Python dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
-        pip install moviepy --upgrade --force-reinstall
-        pip install imageio imageio-ffmpeg
-        pip install opencv-python pillow pydub gtts
-        
-    - name: Create necessary directories
-      run: |
-        mkdir -p logs outputs/videos outputs/shorts outputs/temp data assets/music scripts
-        
-    - name: Create basic data files
-      run: |
-        cat > data/animal_database.json << 'EOF'
-        {
-          "mammals": ["Lion", "Elephant", "Tiger", "Giraffe", "Wolf", "Bear", "Kangaroo", "Panda", "Zebra", "Fox", "Deer", "Horse", "Cheetah", "Leopard"],
-          "reptiles": ["Cobra", "Python", "Chameleon", "Komodo Dragon", "Alligator", "Turtle", "Crocodile", "Iguana", "Gecko", "Snake"],
-          "birds": ["Eagle", "Parrot", "Penguin", "Owl", "Flamingo", "Peacock", "Hawk", "Swan", "Falcon", "Sparrow"],
-          "fish": ["Shark", "Dolphin", "Clownfish", "Goldfish", "Piranha", "Manta Ray", "Whale", "Octopus", "Squid", "Jellyfish"],
-          "insects": ["Butterfly", "Bee", "Ant", "Spider", "Dragonfly", "Ladybug", "Grasshopper", "Beetle", "Mosquito", "Fly"]
-        }
-        EOF
-        
-        cat > data/used_animals.json << 'EOF'
-        []
-        EOF
-        
-        cat > data/performance_data.json << 'EOF'
-        {
-          "upload_history": [],
-          "content_strategy": {
-            "successful_animals": [],
-            "top_keywords": [],
-            "optimal_video_length": 300,
-            "best_upload_times": ["14:00", "20:00"]
-          }
-        }
-        EOF
-        
-    - name: Test moviepy installation
-      run: |
-        python -c "from moviepy.editor import VideoFileClip; print('✅ moviepy installed successfully')"
-        
-    - name: Run YouTube Automation
-      id: automation
-      env:
-        YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-        YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-        YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-        YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-        TEST_MODE: ${{ github.event.inputs.test_mode }}
-      run: |
-        echo "🎯 وضع التشغيل: $TEST_MODE"
-        if [ "$TEST_MODE" = "test" ]; then
-          echo "🧪 وضع الاختبار - فيديو واحد + شورت واحد"
-          python scripts/main.py --test-run
-        else
-          echo "🚀 التشغيل الكامل - 2 فيديو + 5 شورتات"
-          python scripts/main.py --daily-run
-        fi
-        
-    - name: Show Upload Results
-      if: always()
-      run: |
-        echo "=== نتائج الرفع على اليوتيوب ==="
-        if [ -f "logs/automation.log" ]; then
-          echo "📋 آخر 30 سطر من السجل:"
-          tail -30 logs/automation.log
-        else
-          echo "❌ لا يوجد سجل تنفيذ"
-        fi
-        
-    - name: Upload execution results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: youtube-results-${{ github.run_id }}
-        path: |
-          logs/
-        retention-days: 7
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt update
+          sudo apt install -y ffmpeg
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run automation (test mode)
+        env:
+          CLOUDINARYAPIKEY: ${{ secrets.CLOUDINARYAPIKEY }}
+          COVERRAPIKEY: ${{ secrets.COVERRAPIKEY }}
+          ELEVENAPIKEY: ${{ secrets.ELEVENAPIKEY }}
+          HFAPITOKEN: ${{ secrets.HFAPITOKEN }}
+          OPENAIAPIKEY: ${{ secrets.OPENAIAPIKEY }}
+          PEXELSAPIKEY: ${{ secrets.PEXELSAPIKEY }}
+          PIXABAYAPIKEY: ${{ secrets.PIXABAYAPIKEY }}
+          REPLICATEAPITOKEN: ${{ secrets.REPLICATEAPITOKEN }}
+          STORYBLOCKSAPIKEY: ${{ secrets.STORYBLOCKSAPIKEY }}
+          VECTEEZYAPIKEY: ${{ secrets.VECTEEZYAPIKEY }}
+          YTCHANNELID: ${{ secrets.YTCHANNELID }}
+          YTCLIENTID: ${{ secrets.YTCLIENTID }}
+          YTCLIENTSECRET: ${{ secrets.YTCLIENTSECRET }}
+          YTREFRESHTOKEN: ${{ secrets.YTREFRESHTOKEN }}
+          OPENTTS_URL: ${{ secrets.OPENTTS_URL }}
+          TEST_RUN: 'true' # set to 'false' for full daily run
+        run: |
+          python3 scripts/main.py
