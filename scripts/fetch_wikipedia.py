@@ -1,83 +1,57 @@
-#!/usr/bin/env python3
-import argparse, json, time, warnings, logging
+# scripts/fetch_wikipedia.py
+
 import wikipedia
-from bs4 import BeautifulSoup
-warnings.filterwarnings('ignore', category=UserWarning)
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('fetch_wikipedia')
+import re
 
-def safe_page(title):
-    try:
-        return wikipedia.page(title, auto_suggest=False)
-    except Exception:
-        res = wikipedia.search(title, results=3)
-        if res:
-            try:
-                return wikipedia.page(res[0], auto_suggest=False)
-            except Exception:
-                return None
-        return None
+# إعداد اللغة (إنجليزي فقط لضمان مصادر موثوقة)
+wikipedia.set_lang("en")
 
-def extract_facts_from_text(text, maxfacts=10):
-    s = text.replace('\n',' ').strip()
-    sents = [x.strip() for x in s.split('. ') if x.strip()]
+CLEAN_RE = re.compile(r"\[[0-9]+\]")   # حذف مراجع ويكيبيديا [1], [2]
+
+
+def clean(text: str) -> str:
+    """تنظيف نص ويكيبيديا من المراجع والفواصل الغريبة."""
+    if not text:
+        return ""
+    text = CLEAN_RE.sub("", text)
+    text = text.replace("\n", " ").replace("  ", " ")
+    return text.strip()
+
+
+def split_into_facts(text: str):
+    """تفكيك الفقرة إلى حقائق قصيرة مناسبة للفيديو."""
+    if not text:
+        return []
+
+    sentences = re.split(r'\. |\? |\! ', text)
     facts = []
-    for sent in sents:
-        # simple length threshold
-        if len(sent) > 40:
-            facts.append(sent if sent.endswith('.') else sent + '.')
-        if len(facts) >= maxfacts:
-            break
-    return facts
 
-def main(input_path, output_path):
-    with open(input_path, 'r', encoding='utf-8') as f:
-        names = [l.strip() for l in f if l.strip()]
+    for s in sentences:
+        s = clean(s).strip()
+        if len(s) > 30 and len(s) < 180:  # حقائق مناسبة للشورتس واللانج
+            facts.append(s)
 
-    db = []
-    for name in names:
-        entry = {'name': name, 'summary': '', 'source': '', 'facts': []}
-        page = safe_page(name)
-        if page:
-            try:
-                entry['summary'] = page.summary
-                entry['source'] = getattr(page, 'url', '')
-                entry['facts'] = extract_facts_from_text(entry['summary'], maxfacts=10)
-            except Exception as e:
-                log.warning("Failed parse summary for %s: %s", name, e)
+    return facts[:12]  # نكتفي بـ 12 حقيقة كحد أقصى
 
-        if not entry['facts']:
-            # try HTML paragraphs
-            try:
-                p = wikipedia.page(name)
-                html = p.html()
-                soup = BeautifulSoup(html, features='html.parser')
-                paras = soup.find_all('p')
-                for ptag in paras:
-                    txt = ptag.get_text().strip()
-                    if len(txt) > 120:
-                        entry['facts'] = extract_facts_from_text(txt, maxfacts=10)
-                        if entry['facts']:
-                            break
-            except Exception:
-                pass
 
-        if not entry['facts']:
-            entry['summary'] = entry['summary'] or f"{name} is an animal."
-            entry['facts'] = [f"{name} is known for its characteristics.", f"{name} appears in various habitats."]
-            while len(entry['facts']) < 5:
-                entry['facts'].append(f"Additional fact about {name}.")
+def fetch_wiki_facts(animal: str):
+    """
+    جلب فقرة مقدمة + جزء من السلوك + التغذية لو متاح.
+    """
+    try:
+        page = wikipedia.page(animal)
+        summary = clean(wikipedia.summary(animal, sentences=4))
+        content = clean(page.content)
 
-        db.append(entry)
-        time.sleep(0.2)
+        facts = split_into_facts(summary)
 
-    with open(output_path, 'w', encoding='utf-8') as out:
-        json.dump(db, out, ensure_ascii=False, indent=2)
-    print("Wrote", output_path)
+        # fallback: لو ملقاش كفاية
+        if len(facts) < 5:
+            more = split_into_facts(content)
+            facts.extend(more)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input', default='data/animal_list.txt')
-    parser.add_argument('--output', default='data/animal_database.json')
-    args = parser.parse_args()
-    main(args.input, args.output)
+        facts = list(dict.fromkeys(facts))  # إزالة التكرار
+        return facts[:12]
+
+    except Exception as e:
+        return []  # نخلي الـ content_generator هو اللي يعمل fallback
