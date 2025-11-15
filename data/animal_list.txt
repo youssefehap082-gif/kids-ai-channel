@@ -48,4 +48,3 @@ cricket
 tarantula
 scorpion
 praying mantis
-
