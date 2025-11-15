@@ -1,8 +1,0 @@
-lion
-elephant
-tiger
-giraffe
-zebra
-kangaroo
-panda
-cheetah
