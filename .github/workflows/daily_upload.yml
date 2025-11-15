@@ -3,13 +3,13 @@ name: Daily Upload (Production)
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 07 * * *"
+    - cron: "0 7 * * *"  # runs daily at 07:00 UTC (adjust if needed)
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -17,30 +17,24 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install system packages (ffmpeg, fonts)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libsm6 libxrender1 fonts-dejavu-core
+      - name: Install FFmpeg (use stable action)
+        uses: jfloff/alpine-ffmpeg@v1.1  # lightweight ffmpeg install compatible with runners
 
-      - name: Create venv
+      - name: Create venv and install dependencies
         run: |
           python3 -m venv venv
-          echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
-
-      - name: Activate venv and install python deps
-        run: |
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+          pip install moviepy imageio imageio-ffmpeg google-api-python-client google-auth google-auth-oauthlib
 
-      - name: Export envs for run
+      - name: Fix Python Path
         run: |
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
-      - name: Run Production Automation
+      - name: Generate DB (if animal_list.txt exists) and Run main
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
-          # AI / media keys
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
@@ -52,19 +46,17 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
           VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
-
-          # YouTube uploader credentials (must be filled)
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-
-          TEST_RUN: "false"
-
+          # Control flags:
+          FIRST_RUN: "true"   # set to "true" for the very first run (uploads 1 long + 1 short). Set to "false" afterwards.
+          TEST_RUN: "false"   # keep false for production behavior
         run: |
           source venv/bin/activate
           set -e
-          echo ">>> Generate database if needed"
+          echo ">>> Generate database if needed (fetch_wikipedia.py)"
           python3 scripts/fetch_wikipedia.py --input data/animal_list.txt --output data/animal_database.json || echo "no fetch"
           echo ">>> Run main (production)"
           python3 scripts/main.py --publish-mode production
