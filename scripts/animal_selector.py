@@ -1,18 +1,33 @@
-import json
-import random
-from pathlib import Path
+#!/usr/bin/env python3
+import json, random
+DB = 'data/animal_database.json'
+USED = 'data/used_animals.json'
 
-BASE = Path(__file__).resolve().parent.parent
-DATA_FILE = BASE / "data" / "animal_database.json"
+def load_db():
+    return json.load(open(DB, 'r', encoding='utf-8'))
 
-def load_animals():
-    if not DATA_FILE.exists():
-        raise RuntimeError(f"Animal DB file not found: {DATA_FILE}")
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+def get_used():
+    try:
+        return json.load(open(USED, 'r', encoding='utf-8'))
+    except Exception:
+        return []
 
-def pick_n_unique(n=5):
-    animals = load_animals()
-    if len(animals) < n:
-        raise RuntimeError("Not enough animals in DB")
-    return random.sample(animals, n)
+def mark_used(name):
+    used = get_used()
+    used.insert(0, name)
+    used = used[:500]
+    json.dump(used, open(USED, 'w', encoding='utf-8'), indent=2)
+
+def pick_n(n=2):
+    db = load_db()
+    used = set(get_used())
+    candidates = [e for e in db if e['name'] not in used]
+    if len(candidates) < n:
+        candidates = db
+    picked = random.sample(candidates, k=n)
+    for p in picked:
+        mark_used(p['name'])
+    return picked
+
+if __name__ == '__main__':
+    print([p['name'] for p in pick_n(3)])
