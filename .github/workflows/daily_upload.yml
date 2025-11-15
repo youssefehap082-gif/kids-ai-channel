@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install FFmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v2
+        uses: jrottenberg/ffmpeg-action@v2
 
       - name: Create venv
         run: |
@@ -28,38 +28,18 @@ jobs:
       - name: Activate venv + Run automation
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
-
-          # API keys (set these in repo Settings → Secrets → Actions)
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          PEXELS_CLIENT_ID: ${{ secrets.PEXELS_CLIENT_ID }}
-          PIXABAY_CLIENT_ID: ${{ secrets.PIXABAY_CLIENT_ID }}
-
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-
-          TEST_RUN: "false"   # set to "true" to run in test mode instead of publishing
+          TEST_RUN: "false"
         run: |
-          source venv/bin/activate
+          source venv/bin/activate || true
           pip install --upgrade pip setuptools wheel
-
-          # IMPORTANT: use a moviepy version available on PyPI (avoid exact 2.3.0 if not present)
-          # Use the project's requirements.txt; ensure it lists a supported moviepy version (e.g. moviepy==1.0.3)
           pip install -r requirements.txt
-
-          echo ">>> Running Wikipedia fetch (if list present)"
           python3 scripts/fetch_wikipedia.py --input data/animal_list.txt --output data/animal_database.json || true
-
-          echo ">>> Running MAIN automation"
           python3 scripts/main.py --publish-mode production
