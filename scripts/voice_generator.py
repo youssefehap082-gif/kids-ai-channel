@@ -2,153 +2,191 @@ import os
 import logging
 import time
 from pathlib import Path
-from gtts import gTTS
 from pydub import AudioSegment
 import requests
 
 logger = logging.getLogger("voice_generator")
+logger.setLevel(logging.INFO)
 
-TMP = Path(__file__).resolve().parent / "tmp_voice"
-TMP.mkdir(exist_ok=True)
+OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
+ELEVEN_KEY = os.getenv("ELEVEN_API_KEY", "")
+GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+
+TMP = Path("data/tmp_audio")
+TMP.mkdir(parents=True, exist_ok=True)
 
 
-# --------------------------------------------------
-# Helper: save raw bytes to file
-# --------------------------------------------------
-def save_audio_bytes(data, path):
-    with open(path, "wb") as f:
-        f.write(data)
+# -------------------------------------------------------
+# Helpers
+# -------------------------------------------------------
+def _save_temp(buf: bytes, suffix=".mp3"):
+    """Save temporary audio file."""
+    fname = TMP / f"voice_{int(time.time()*1000)}{suffix}"
+    with open(fname, "wb") as f:
+        f.write(buf)
+    return fname
+
+
+def _normalize_audio(path: Path, target_dbfs=-14):
+    """Normalize audio to consistent loudness."""
+    audio = AudioSegment.from_file(path)
+    change = target_dbfs - audio.dBFS
+    normalized = audio.apply_gain(change)
+    normalized.export(path, format="mp3")
     return path
 
 
-# --------------------------------------------------
-# PROVIDER 1 — OpenAI TTS
-# --------------------------------------------------
-def tts_openai(text, gender="male"):
+def _retry(fn, tries=3, wait=1):
+    last = None
+    for i in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            last = e
+            logger.warning(f"TTS retry {i+1}/{tries} failed: {e}")
+            time.sleep(wait)
+    raise last
+
+
+# -------------------------------------------------------
+# Provider 1) OPENAI TTS  (أفضل جودة)
+# -------------------------------------------------------
+def _tts_openai(text: str, voice: str = "alloy"):
+    if not OPENAI_KEY:
+        raise RuntimeError("OPENAI_API_KEY missing")
+
+    import openai
+    openai.api_key = OPENAI_KEY
+
     try:
-        import openai
-
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        voice = "alloy" if gender == "male" else "verse"
-
-        logger.info("Using OpenAI TTS...")
-        result = client.audio.speech.create(
+        client = openai.OpenAI(api_key=OPENAI_KEY)
+        resp = client.audio.speech.create(
             model="gpt-4o-mini-tts",
             voice=voice,
             input=text
         )
-
-        audio_bytes = result.read()
-
-        out_path = TMP / "openai_tts.mp3"
-        return save_audio_bytes(audio_bytes, out_path)
-
+        audio_bytes = resp.read()
+        return _save_temp(audio_bytes, ".mp3")
     except Exception as e:
         raise RuntimeError(f"OpenAI TTS failed: {e}")
 
 
-# --------------------------------------------------
-# PROVIDER 2 — ElevenLabs
-# --------------------------------------------------
-def tts_elevenlabs(text, gender="male"):
+# -------------------------------------------------------
+# Provider 2) ElevenLabs (الأفضل بعد OpenAI)
+# -------------------------------------------------------
+def _tts_eleven(text: str, voice_gender="male"):
+    if not ELEVEN_KEY:
+        raise RuntimeError("ELEVEN_API_KEY missing")
+
+    voice_id = "pNInz6obpgDQGcFmaJgB" if voice_gender == "male" else "EXAVITQu4vr4xnSDxMaL"
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "xi-api-key": ELEVEN_KEY,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "text": text,
+        "voice_settings": {"stability": 0.4, "similarity_boost": 0.7}
+    }
+
     try:
-        API_KEY = os.getenv("ELEVEN_API_KEY")
-        if not API_KEY:
-            raise RuntimeError("Missing ELEVEN_API_KEY")
-
-        voice_id = "pNInz6obpgDQGcFmaJgB" if gender == "male" else "TxGEqnHWrfWFTfGW9XjX"
-
-        logger.info("Using ElevenLabs TTS...")
-
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {
-            "xi-api-key": API_KEY,
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "text": text,
-            "voice_settings": {"stability": 0.5, "similarity_boost": 0.65}
-        }
-
-        res = requests.post(url, json=payload, headers=headers)
-        if res.status_code != 200:
-            raise RuntimeError(res.text)
-
-        out_path = TMP / "eleven_tts.mp3"
-        return save_audio_bytes(res.content, out_path)
-
+        r = requests.post(url, json=payload, headers=headers, timeout=40)
+        r.raise_for_status()
+        return _save_temp(r.content, ".mp3")
     except Exception as e:
         raise RuntimeError(f"ElevenLabs TTS failed: {e}")
 
 
-# --------------------------------------------------
-# PROVIDER 3 — Google gTTS (always available)
-# --------------------------------------------------
-def tts_gtts(text, gender="male"):
+# -------------------------------------------------------
+# Provider 3) gTTS (أبطأ – لكن ثابت)
+# -------------------------------------------------------
+def _tts_gtts(text: str):
     try:
-        logger.info("Using Google gTTS...")
-        tts = gTTS(text=text, lang="en")
-        out_path = TMP / "gtts_tts.mp3"
-        tts.save(out_path)
-        return out_path
+        from gtts import gTTS
+        tts = gTTS(text, lang="en")
+        buf = TMP / f"gtts_{int(time.time()*1000)}.mp3"
+        tts.save(str(buf))
+        return buf
     except Exception as e:
         raise RuntimeError(f"gTTS failed: {e}")
 
 
-# --------------------------------------------------
-# PROVIDER 4 — Gemini Audio (fallback)
-# --------------------------------------------------
-def tts_gemini(text, gender="male"):
+# -------------------------------------------------------
+# Provider 4) Gemini Audio
+# -------------------------------------------------------
+def _tts_gemini(text: str):
+    if not GEMINI_KEY:
+        raise RuntimeError("GEMINI_API_KEY missing")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": text}
+            ]
+        }]
+    }
+
     try:
-        import google.generativeai as genai
+        r = requests.post(url, json=payload, timeout=40)
+        r.raise_for_status()
 
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        data = r.json()
 
-        logger.info("Using Gemini Audio...")
-
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
-        response = model.generate_content(
-            [
-                {"text": text},
-            ],
-            generation_config={"audio": {"voice": gender}}
+        audio_base64 = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("audioData")
         )
 
-        audio = response._result.audio.data  # raw bytes
+        if not audio_base64:
+            raise RuntimeError("Gemini returned no audio")
 
-        out_path = TMP / "gemini_tts.mp3"
-        return save_audio_bytes(audio, out_path)
+        import base64
+        audio_bytes = base64.b64decode(audio_base64)
 
+        return _save_temp(audio_bytes)
     except Exception as e:
         raise RuntimeError(f"Gemini TTS failed: {e}")
 
 
-# --------------------------------------------------
-# Fallback system (OpenAI → Eleven → gTTS → Gemini)
-# --------------------------------------------------
-def generate_voice_with_failover(text, gender="male"):
+# -------------------------------------------------------
+# Unified function — auto fallback TTS
+# -------------------------------------------------------
+def generate_voice_with_failover(
+    text: str,
+    preferred_gender: str = "male"
+) -> Path:
+    """
+    Attempts TTS in this order:
+    1) OpenAI TTS
+    2) ElevenLabs
+    3) Gemini Audio
+    4) gTTS
+    """
+
     providers = [
-        ("openai", tts_openai),
-        ("elevenlabs", tts_elevenlabs),
-        ("gtts", tts_gtts),
-        ("gemini", tts_gemini),
+        ("openai", lambda: _tts_openai(text)),
+        ("eleven", lambda: _tts_eleven(text, preferred_gender)),
+        ("gemini", lambda: _tts_gemini(text)),
+        ("gtts", lambda: _tts_gtts(text))
     ]
 
     errors = []
 
-    for name, func in providers:
-        for attempt in range(3):  # auto retry
-            try:
-                logger.info(f"TTS Provider: {name} (attempt {attempt+1})")
-                path = func(text, gender)
-                logger.info(f"TTS success from {name}")
-                return path
+    for name, fn in providers:
+        try:
+            logger.info(f"Trying TTS provider: {name}")
+            out = _retry(fn, tries=2, wait=1)
+            out = _normalize_audio(out)
+            logger.info(f"TTS provider worked: {name}")
+            return out
+        except Exception as e:
+            errors.append((name, str(e)))
+            logger.warning(f"TTS provider failed: {name} → {e}")
 
-            except Exception as e:
-                logger.error(f"{name} failed: {e}")
-                errors.append(f"{name}: {e}")
-                time.sleep(1.2)
-
-    raise RuntimeError(f"All TTS providers failed: {errors}")
+    logger.error(f"All TTS providers failed: {errors}")
+    raise RuntimeError(f"All TTS failed: {errors}")
