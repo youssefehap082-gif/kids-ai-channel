@@ -6,7 +6,6 @@ google-auth-oauthlib
 google-auth
 Pillow
 python-dotenv
-replicate
 transformers
 torch
 opencv-python-headless
