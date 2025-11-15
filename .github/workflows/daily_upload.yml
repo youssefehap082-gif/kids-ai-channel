@@ -1,0 +1,24 @@
+name: Daily Upload (Production)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - uses: FedericoCarboni/setup-ffmpeg@v2
+      - run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+      - run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
+      - run: |
+          source venv/bin/activate
+          python3 scripts/fetch_wikipedia.py --input data/animal_list.txt --output data/animal_database.json
+          python3 scripts/main.py --publish-mode scheduled
