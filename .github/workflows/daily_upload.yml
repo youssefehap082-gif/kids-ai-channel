@@ -1,67 +1,55 @@
 name: Daily Upload (Production)
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'run mode: test or prod'
+        required: false
+        default: 'test'
   schedule:
-    - cron: "0 7 * * *"
+    - cron: '0 7 * * *'  # 07:00 UTC daily
 
 jobs:
-  build:
+  build-and-run:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      # --------- FFmpeg WORKING 100% ---------
-      - name: Install FFmpeg
+      - name: Install ffmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
 
-      - name: Create venv + install requirements
+      - name: Create venv and install deps
         run: |
           python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
-          pip install moviepy imageio imageio-ffmpeg google-api-python-client google-auth google-auth-oauthlib
 
-      - name: Export Python Path
-        run: |
-          echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
+      - name: Export PYTHONPATH
+        run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
-      - name: Generate DB + Run main
+      - name: Run automation
         env:
-          PYTHONPATH: ${{ env.PYTHONPATH }}
-
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
-          VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
-
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-
-          FIRST_RUN: "true"
-          TEST_RUN: "false"
-
+          TEST_RUN: ${{ github.event.inputs.mode == 'test' && 'true' || 'false' }}
         run: |
           source venv/bin/activate
-          echo ">>> Generate database"
-          python3 scripts/fetch_wikipedia.py --input data/animal_list.txt --output data/animal_database.json || echo "no fetch"
-
-          echo ">>> Running production main"
-          python3 scripts/main.py --publish-mode production
+          python3 scripts/main.py
