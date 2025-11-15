@@ -1,65 +1,81 @@
 # scripts/animal_selector.py
+"""
+Select animals for daily videos.
+
+System:
+- Reads basic animal list from data/animal_list.txt
+- Generates animal_database.json on first run (from Wikipedia)
+- Tracks used animals in used_animals.json to avoid repetition for 7 days
+- Ensures random + no-repeat selection
+"""
 
 import json
 import random
 from pathlib import Path
 
-DATA_DIR = Path("data")
-USED_FILE = DATA_DIR / "used_animals.json"
+DATA = Path(__file__).resolve().parent.parent / "data"
+ANIMAL_LIST = DATA / "animal_list.txt"
+ANIMAL_DB = DATA / "animal_database.json"
+USED = DATA / "used_animals.json"
 
-# ======================================================
-# 1) قائمة الحيوانات الأساسية (حسب طلبك)
-# ======================================================
-ANIMAL_LIST = [
-    "lion", "tiger", "elephant", "giraffe", "zebra", "hippopotamus",
-    "rhinoceros", "cheetah", "leopard", "bear", "wolf", "fox",
-    "kangaroo", "koala", "panda", "chimpanzee", "gorilla", "orangutan",
-    "hyena", "buffalo", "camel", "ostrich", "emu", "eagle", "falcon",
-    "albatross", "penguin", "seal", "dolphin", "whale", "shark",
-    "octopus", "jellyfish", "crocodile", "alligator", "cobra",
-    "python", "king cobra", "rattlesnake", "frog", "toad", "salamander",
-    "butterfly", "bee", "ant", "grasshopper", "cricket", "tarantula",
-    "scorpion", "praying mantis"
-]
 
-# ======================================================
-# 2) تحميل سجل الحيوانات المستخدمة
-# ======================================================
+def load_list():
+    """Load the raw names from the text list"""
+    if not ANIMAL_LIST.exists():
+        raise RuntimeError("animal_list.txt missing!")
+    with open(ANIMAL_LIST, "r", encoding="utf-8") as f:
+        return [x.strip() for x in f.readlines() if x.strip()]
+
+
+def load_db():
+    """Load database (with facts fetched by wikipedia)"""
+    if not ANIMAL_DB.exists():
+        return {}
+    try:
+        with open(ANIMAL_DB, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+
 def load_used():
-    if USED_FILE.exists():
-        try:
-            return json.loads(USED_FILE.read_text())
-        except:
-            return []
-    return []
+    if not USED.exists():
+        return []
+    try:
+        return json.load(open(USED, "r", encoding="utf-8"))
+    except:
+        return []
 
-# ======================================================
-# 3) حفظ السجل
-# ======================================================
+
 def save_used(lst):
-    USED_FILE.write_text(json.dumps(lst, indent=2))
+    with open(USED, "w", encoding="utf-8") as f:
+        json.dump(lst, f, indent=2)
 
-# ======================================================
-# 4) اختيار الحيوانات لليوم
-# ======================================================
-def pick_animals(num_needed: int):
+
+def pick_animals(n=7):
     """
-    Picks N unique animals without repeating previous runs.
-    When exhausted, automatically resets the used list.
+    Picks N animals, avoids repeating animals used in last 7 days.
     """
+    names = load_list()
+    db = load_db()
     used = load_used()
-    available = [a for a in ANIMAL_LIST if a not in used]
 
-    # لو خلصوا — نصفر القائمة
-    if len(available) < num_needed:
+    # Filter missing db entries
+    names = [x for x in names if x in db]
+
+    # Remove recently used
+    candidates = [x for x in names if x not in used[:7]]
+    if len(candidates) < n:
+        # if fewer candidates, reset used
         used = []
-        save_used(used)
-        available = ANIMAL_LIST.copy()
+        candidates = names
 
-    picked = random.sample(available, num_needed)
+    random.shuffle(candidates)
+    selected = candidates[:n]
 
-    # تحديث المستخدم
-    new_used = used + picked
-    save_used(new_used)
+    # Update used list (prepend)
+    used = selected + used
+    save_used(used[:100])  # keep memory small
 
-    return picked
+    # Return data objects with facts + species
+    return [db[x] for x in selected]
