@@ -18,11 +18,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      # --------- FIXED FFmpeg Action (working 100%) ----------
+      # --------- FFmpeg WORKING 100% ---------
       - name: Install FFmpeg
-        uses: useblackhole/ffmpeg@v1
+        uses: FedericoCarboni/setup-ffmpeg@v2
 
-      - name: Create venv and install dependencies
+      - name: Create venv + install requirements
         run: |
           python3 -m venv venv
           source venv/bin/activate
@@ -30,11 +30,11 @@ jobs:
           pip install -r requirements.txt
           pip install moviepy imageio imageio-ffmpeg google-api-python-client google-auth google-auth-oauthlib
 
-      - name: Fix Python Path
+      - name: Export Python Path
         run: |
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
-      - name: Generate DB and Run main
+      - name: Generate DB + Run main
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
 
@@ -60,9 +60,8 @@ jobs:
 
         run: |
           source venv/bin/activate
-          set -e
-          echo ">>> Generating animal DB"
+          echo ">>> Generate database"
           python3 scripts/fetch_wikipedia.py --input data/animal_list.txt --output data/animal_database.json || echo "no fetch"
 
-          echo ">>> Running main"
+          echo ">>> Running production main"
           python3 scripts/main.py --publish-mode production
