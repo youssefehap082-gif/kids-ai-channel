@@ -1,18 +1,34 @@
+# Core HTTP + utils
 requests
-moviepy
-pydub
-google-api-python-client
-google-auth-oauthlib
-google-auth
-Pillow
 python-dotenv
-replicate
-transformers
-opencv-python-headless
 tqdm
-openai
-gTTS==2.5.4
+pillow
+numpy
+beautifulsoup4
+wikipedia
+
+# MoviePy + media
+moviepy==2.0.0.dev2
 imageio
 imageio-ffmpeg
-wikipedia
-beautifulsoup4
+
+# Audio / Voice
+gTTS==2.5.4
+pydub
+
+# AI models
+openai
+transformers
+replicate
+torch
+
+# Google / YouTube
+google-api-python-client
+google-auth
+google-auth-oauthlib
+
+# Computer Vision
+opencv-python-headless
+
+# Optional: For SEO / NLP improvements
+regex
