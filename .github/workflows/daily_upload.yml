@@ -33,19 +33,44 @@ jobs:
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
 
-      - name: Install Python dependencies (with retries)
+      - name: Activate venv and install base deps (with retries)
+        shell: bash
         run: |
           set -e
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel || true
+          # try to install requirements with retries
           tries=0
           until [ $tries -ge 3 ]
           do
             pip install -r requirements.txt && break
             tries=$((tries+1))
-            echo "pip install failed - attempt $tries"
+            echo "pip install -r requirements.txt failed - attempt $tries"
             sleep 5
           done
+          # ensure moviepy + imageio-ffmpeg explicitly (some runners need explicit reinstall)
+          tries=0
+          until [ $tries -ge 3 ]
+          do
+            pip install --no-cache-dir moviepy imageio-ffmpeg && break
+            tries=$((tries+1))
+            echo "pip install moviepy/imageio-ffmpeg failed - attempt $tries"
+            sleep 5
+          done
+
+      - name: Debug: python & installed packages
+        run: |
+          source venv/bin/activate
+          python --version
+          which python
+          python - <<'PY'
+import pkgutil, importlib, sys
+print("sys.path:", sys.path[:5])
+print("Can import moviepy?", importlib.util.find_spec("moviepy") is not None)
+print("Can import moviepy.editor?", importlib.util.find_spec("moviepy.editor") is not None)
+import subprocess, sys
+subprocess.run([sys.executable, "-m", "pip", "show", "moviepy"] )
+PY
 
       - name: Export PYTHONPATH
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
