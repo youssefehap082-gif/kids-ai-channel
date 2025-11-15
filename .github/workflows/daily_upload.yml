@@ -16,10 +16,10 @@ jobs:
   build-and-run:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
@@ -27,12 +27,25 @@ jobs:
       - name: Install ffmpeg
         uses: FedericoCarboni/setup-ffmpeg@v2
 
-      - name: Create venv and install deps
+      - name: Create venv
         run: |
           python3 -m venv venv
+          echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
+          echo "$(pwd)/venv/bin" >> $GITHUB_PATH
+
+      - name: Install Python dependencies (with retries)
+        run: |
+          set -e
           source venv/bin/activate
-          pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
+          pip install --upgrade pip setuptools wheel || true
+          tries=0
+          until [ $tries -ge 3 ]
+          do
+            pip install -r requirements.txt && break
+            tries=$((tries+1))
+            echo "pip install failed - attempt $tries"
+            sleep 5
+          done
 
       - name: Export PYTHONPATH
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
