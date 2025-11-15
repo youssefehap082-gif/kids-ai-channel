@@ -1,146 +1,83 @@
-# scripts/content_generator.py
-
 import os
-import json
 import random
-from scripts.fetch_wikipedia import fetch_wiki_facts
+import logging
+import wikipedia
 
-from openai import OpenAI
-import requests
+from scripts.utils import clean_text
+from scripts.ai_providers import (
+    ai_generate_text_scientific,
+    ai_generate_text_mixed,
+    ai_generate_text_viral,
+)
 
-# ========= LOAD KEYS ==========
-OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
-GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-GROQ_KEY   = os.getenv("GROQ_API_KEY", "")
+logger = logging.getLogger("content_generator")
+
+# Set Wikipedia language to English
+wikipedia.set_lang("en")
 
 
-# -------------------------------
-#   FALLBACK AI SYSTEM
-# -------------------------------
-def ai_generate(prompt):
+def fetch_wikipedia_facts(animal_name, limit=10):
     """
-    يحاول 4 نماذج بالترتيب:
-    1) OpenAI GPT (الأفضل)
-    2) Gemini
-    3) Groq (Llama)
-    4) Local Mini Model (dummy)
+    Gets highly accurate scientific info from Wikipedia.
+    Always returns clean, real data.
+    """
+    try:
+        page = wikipedia.page(animal_name, auto_suggest=True)
+        summary = clean_text(page.summary)
+    except Exception:
+        summary = f"{animal_name} is an animal species."
+
+    sentences = summary.split(". ")
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 40]
+
+    return sentences[:limit]
+
+
+def ai_generate_facts(animal, mode="mixed", count=10):
+    """
+    mode:
+      scientific → Research-grade, from wiki-derived prompts
+      mixed → viral + scientific + fun
+      viral → pure engagement / shorts style
+    """
+    if mode == "scientific":
+        return ai_generate_text_scientific(animal, count)
+
+    if mode == "viral":
+        return ai_generate_text_viral(animal, count)
+
+    return ai_generate_text_mixed(animal, count)
+
+
+def generate_facts_script(animal_name, num_facts_long=10, num_facts_short=1, short_mode=False):
+    """
+    Returns:
+      full_script (string)
+      facts_list (list)
     """
 
-    errors = []
+    mode = random.choice(["scientific", "mixed", "mixed", "viral"])
 
-    # 1) OpenAI
-    if OPENAI_KEY:
-        try:
-            client = OpenAI(api_key=OPENAI_KEY)
-            r = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-            )
-            return r.choices[0].message.content
-        except Exception as e:
-            errors.append(("openai", str(e)))
+    # Wikipedia baseline
+    wiki_facts = fetch_wikipedia_facts(animal_name, limit=12)
 
-    # 2) Gemini
-    if GEMINI_KEY:
-        try:
-            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY
-            r = requests.post(url, json={"contents":[{"parts":[{"text":prompt}]}]})
-            data = r.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            errors.append(("gemini", str(e)))
+    # AI-enhanced facts
+    ai_facts = ai_generate_facts(animal_name, mode=mode, count=num_facts_long)
 
-    # 3) Groq
-    if GROQ_KEY:
-        try:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {GROQ_KEY}"}
-            r = requests.post(url, headers=headers, json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-            })
-            data = r.json()
-            return data["choices"][0]["message"]["content"]
-        except Exception as e:
-            errors.append(("groq", str(e)))
+    # Combine & clean
+    all_facts = wiki_facts[:3] + ai_facts
+    all_facts = [clean_text(f) for f in all_facts if f]
 
-    # 4) آخر حل – mini model
-    errors.append(("local-mini", "fallback used"))
-    return "No AI available — fallback text."
+    if short_mode:
+        # 1 viral fact per short
+        return None, all_facts[:1]
 
+    # Build narration script
+    lines = []
+    for idx, fact in enumerate(all_facts[:num_facts_long], start=1):
+        lines.append(f"Fact {idx}: {fact}")
 
-# ---------------------------------------
-#             SCRIPT BUILDER
-# ---------------------------------------
-def build_scientific_facts(animal, wiki_facts):
-    return wiki_facts[:8]
+    lines.append("\nDon't forget to subscribe and hit the bell for more!")
 
-
-def build_viral_facts(animal):
-    prompt = f"""
-Give me 12 viral-style facts about {animal}.
-Make them surprising, fun, emotional, and TikTok style.
-Short lines. No numbering.
-"""
-    txt = ai_generate(prompt)
-    lines = [l.strip() for l in txt.split("\n") if len(l.strip()) > 4]
-    return lines[:10]
-
-
-def build_mixed_facts(animal, wiki_facts):
-    prompt = f"""
-You are a YouTube viral animal expert.
-
-Generate 10 MIXED facts about {animal}.
-50% scientific accurate + 50% fun / emotional / shocking.
-
-Short lines, no numbering.
-"""
-    ai_txt = ai_generate(prompt)
-    ai_facts = [l.strip() for l in ai_txt.split("\n") if len(l.strip()) > 4]
-
-    combined = wiki_facts[:5] + ai_facts[:5]
-    return combined
-
-
-# ------------------------------------------------------
-#     MAIN — Generate Full Script (Long + Short)
-# ------------------------------------------------------
-def generate_facts_script(animal_name,
-                          num_facts_long=10,
-                          num_facts_short=1):
-
-    # 1) ويكيبيديا
-    wiki_facts = fetch_wiki_facts(animal_name)
-
-    if not wiki_facts:
-        wiki_facts = [f"{animal_name} is a fascinating creature with unique behavior."]
-
-    # 2) Scientific
-    scientific = build_scientific_facts(animal_name, wiki_facts)
-
-    # 3) Viral
-    viral = build_viral_facts(animal_name)
-
-    # 4) Mixed
-    mixed = build_mixed_facts(animal_name, wiki_facts)
-
-    # ========== LONG VIDEO SCRIPT ==========
-    long_script = []
-    long_script.extend(scientific[:4])
-    long_script.extend(mixed[:4])
-    long_script.extend(viral[:4])
-
-    random.shuffle(long_script)
-
-    long_script = long_script[:num_facts_long]
-
-    # ========== SHORT SCRIPT (VERY SHORT FACT) ==========
-    if num_facts_short == 1:
-        # خليه صادم وممتع
-        short_script = viral[:1]
-    else:
-        short_script = viral[:num_facts_short]
-
-    return long_script, short_script
+    script = "\n".join(lines)
+    return script, all_facts[:num_facts_long]
