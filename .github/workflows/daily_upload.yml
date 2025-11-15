@@ -1,7 +1,7 @@
 name: Daily Upload (Production)
 
 on:
-  workflow_dispatch: {}       # ← إصلاح المشكلة
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   schedule:
@@ -34,31 +34,11 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
 
-      - name: Install Python dependencies (inside venv with retries)
-        shell: bash
+      - name: Install Python dependencies
         run: |
           source venv/bin/activate
-          tries=0
-          until [ $tries -ge 3 ]
-          do
-            pip install -r requirements.txt && break
-            tries=$((tries+1))
-            echo "Retry pip install ($tries)"
-            sleep 3
-          done
-          pip install --no-cache-dir moviepy imageio-ffmpeg || true
-
-      - name: Show installed packages (debug)
-        run: |
-          source venv/bin/activate
-          python - <<'PY'
-import importlib, sys
-print("Python:", sys.executable)
-print("moviepy:", importlib.util.find_spec("moviepy") is not None)
-print("moviepy.editor:", importlib.util.find_spec("moviepy.editor") is not None)
-import pkgutil
-print("Installed top packages:", [m.name for m in pkgutil.iter_modules()][:40])
-PY
+          pip install -r requirements.txt
+          pip install moviepy imageio-ffmpeg
 
       - name: Export PYTHONPATH
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
@@ -66,7 +46,7 @@ PY
       - name: Run automation
         env:
           PYTHONPATH: ${{ github.workspace }}
-          TEST_RUN: ${{ secrets.TEST_RUN_OVERRIDE }}
+          TEST_RUN: ${{ secrets.TEST_RUN }}
           WATERMARK_TEXT: "@WildPlanetFacts"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
