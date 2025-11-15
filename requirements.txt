@@ -6,8 +6,8 @@ google-auth-oauthlib
 google-auth
 Pillow
 python-dotenv
+replicate
 transformers
-torch
 opencv-python-headless
 tqdm
 openai
@@ -15,4 +15,3 @@ gTTS==2.5.4
 imageio
 imageio-ffmpeg
 wikipedia
-beautifulsoup4
