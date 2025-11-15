@@ -1,7 +1,12 @@
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 import tempfile
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip
+from moviepy.editor import (
+    VideoFileClip,
+    concatenate_videoclips,
+    AudioFileClip,
+    CompositeVideoClip
+)
 import os
 
 TMP = Path(__file__).resolve().parent / "tmp"
@@ -16,7 +21,7 @@ def make_title_image(text, width, height=120, fontsize=48):
     except:
         font = ImageFont.load_default()
 
-    # FIX: textbbox بدل textsize
+    # FIX (Pillow الجديد): textbbox بدل textsize
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
@@ -28,6 +33,7 @@ def make_title_image(text, width, height=120, fontsize=48):
     out = TMP / "title.png"
     img.save(out)
     return str(out)
+
 
 def assemble_long_video(clips_paths, voice_path, music_path=None, title_text=None, watermark_path=None):
     clips = []
@@ -43,30 +49,69 @@ def assemble_long_video(clips_paths, voice_path, music_path=None, title_text=Non
 
     final = concatenate_videoclips(clips, method="compose")
 
-    # إضافة تعليق صوتي
+    # -------------------------
+    # صوت رئيسي (تعليق صوتي)
+    # -------------------------
     if voice_path:
         voice_audio = AudioFileClip(str(voice_path))
         final = final.set_audio(voice_audio)
 
-    # إضافة موسيقى خفيفة
+    # -------------------------
+    # موسيقى خفيفة أسفل الصوت
+    # -------------------------
     if music_path:
         try:
             music = AudioFileClip(str(music_path)).volumex(0.15)
         except:
             music = None
 
-    # إضافة عنوان أول 4 ثواني
+    # -------------------------
+    # عنوان أول الفيديو
+    # -------------------------
     if title_text:
         title_img = make_title_image(title_text, final.size[0])
         title_clip = VideoFileClip(title_img).set_duration(4)
         final = concatenate_videoclips([title_clip, final])
 
-    # إضافة Watermark
+    # -------------------------
+    # Watermark
+    # -------------------------
     if watermark_path:
         wm = VideoFileClip(watermark_path).resize(height=60).set_opacity(0.7)
-        final = CompositeVideoClip([final, wm.set_position(("right", "bottom"))])
+        final = CompositeVideoClip([
+            final,
+            wm.set_position(("right", "bottom"))
+        ])
 
-    # حفظ الفيديو النهائي
+    # -------------------------
+    # إخراج
+    # -------------------------
     out_path = TMP / "long_final.mp4"
     final.write_videofile(str(out_path), fps=24, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+    return out_path
+
+
+# ============================================================
+#  SHORTS FUNCTION (المطلوبة — واللي كانت سبب الخطأ)
+# ============================================================
+def assemble_short(clip_path, music_path=None):
+    """Short video = 15 sec صوت + فيديو يكمل لحد 60 ثانية."""
+
+    base = VideoFileClip(str(clip_path))
+
+    # الصوت (مش بنستخدم تعليق صوتي)
+    if music_path:
+        try:
+            music = AudioFileClip(str(music_path)).volumex(0.25)
+            base = base.set_audio(music)
+        except:
+            pass
+
+    # الشورت = الحد الأقصى 60 ثانية
+    duration = min(60, base.duration)
+    short = base.subclip(0, duration)
+
+    out_path = TMP / "short_final.mp4"
+    short.write_videofile(str(out_path), fps=24, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+
     return out_path
