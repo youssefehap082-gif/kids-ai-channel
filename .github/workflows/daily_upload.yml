@@ -3,11 +3,12 @@ name: Daily Upload (Production)
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 7 * * *"  # runs daily at 07:00 UTC (adjust if needed)
+    - cron: "0 7 * * *"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,8 +18,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install FFmpeg (use stable action)
-        uses: jfloff/alpine-ffmpeg@v1.1  # lightweight ffmpeg install compatible with runners
+      # --------- FIXED FFmpeg Action (working 100%) ----------
+      - name: Install FFmpeg
+        uses: useblackhole/ffmpeg@v1
 
       - name: Create venv and install dependencies
         run: |
@@ -32,9 +34,10 @@ jobs:
         run: |
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
-      - name: Generate DB (if animal_list.txt exists) and Run main
+      - name: Generate DB and Run main
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
+
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
@@ -46,17 +49,20 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
           VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
+
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          # Control flags:
-          FIRST_RUN: "true"   # set to "true" for the very first run (uploads 1 long + 1 short). Set to "false" afterwards.
-          TEST_RUN: "false"   # keep false for production behavior
+
+          FIRST_RUN: "true"
+          TEST_RUN: "false"
+
         run: |
           source venv/bin/activate
           set -e
-          echo ">>> Generate database if needed (fetch_wikipedia.py)"
+          echo ">>> Generating animal DB"
           python3 scripts/fetch_wikipedia.py --input data/animal_list.txt --output data/animal_database.json || echo "no fetch"
-          echo ">>> Run main (production)"
+
+          echo ">>> Running main"
           python3 scripts/main.py --publish-mode production
