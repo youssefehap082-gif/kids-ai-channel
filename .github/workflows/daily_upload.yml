@@ -2,16 +2,17 @@ name: Daily Upload (Production)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ "main" ]
   schedule:
     - cron: "0 7 * * *"
-  push:
-    branches: ["main"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -20,12 +21,18 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Create venv
         run: |
           python3 -m venv venv
           source venv/bin/activate
-          pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt || pip install -r requirements.txt || pip install -r requirements.txt
+          pip install --upgrade pip
+
+      - name: Install dependencies (INSIDE VENV)
+        run: |
+          source venv/bin/activate
+          pip install moviepy imageio imageio-ffmpeg
+          pip install -r requirements.txt
+          pip install google-auth-oauthlib google-api-python-client
 
       - name: Show installed packages
         run: |
@@ -38,9 +45,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
