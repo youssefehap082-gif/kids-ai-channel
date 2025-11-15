@@ -1,58 +1,66 @@
 name: Daily Upload (Production)
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [ "main" ]
   schedule:
-    - cron: "0 7 * * *"
+    - cron: '0 7 * * *'    # 07:00 UTC daily
+  workflow_dispatch: {}
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: Create venv
         run: |
           python3 -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip
+          echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
+          echo "$(pwd)/venv/bin" >> $GITHUB_PATH
 
-      - name: Install dependencies (INSIDE VENV)
+      - name: Install Python dependencies
         run: |
           source venv/bin/activate
-          pip install moviepy imageio imageio-ffmpeg
+          pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
-          pip install google-auth-oauthlib google-api-python-client
+          pip install moviepy --force-reinstall
+          pip install imageio imageio-ffmpeg
 
       - name: Show installed packages
         run: |
           source venv/bin/activate
           pip list
 
+      - name: Fix Python path
+        run: |
+          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+
       - name: Run automation
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          # set TEST_RUN=true for manual test run; set to 'false' for full daily production
+          TEST_RUN: ${{ secrets.TEST_RUN_OVERRIDE }}   # or set here 'true' for immediate test
+          WATERMARK_TEXT: "@WildPlanetFacts"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          TEST_RUN: false
         run: |
           source venv/bin/activate
+          echo "PYTHONPATH is: $PYTHONPATH"
           python3 scripts/main.py
