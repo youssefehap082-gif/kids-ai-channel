@@ -1,5 +1,5 @@
 requests
-moviepy==1.0.3
+moviepy
 pydub
 google-api-python-client
 google-auth-oauthlib
@@ -15,3 +15,4 @@ gTTS==2.5.4
 imageio
 imageio-ffmpeg
 wikipedia
+beautifulsoup4
