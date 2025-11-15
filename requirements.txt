@@ -1,5 +1,5 @@
 requests
-moviepy==2.3.0
+moviepy==1.0.3
 pydub
 google-api-python-client
 google-auth-oauthlib
