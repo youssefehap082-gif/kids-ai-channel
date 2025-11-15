@@ -1,207 +1,139 @@
+# scripts/main.py
 import os
-import random
 import logging
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 
-# Local modules
 from scripts.animal_selector import pick_animals
 from scripts.content_generator import generate_facts_script
-from scripts.voice_generator import generate_voice_with_failover
+from scripts.voice_generator import generate_voice_with_fallback
 from scripts.video_creator import assemble_long_video, assemble_short_video
-from scripts.youtube_uploader import upload_to_youtube
-from scripts.utils import fetch_animal_clips, fetch_music_track, ensure_dir
-from scripts.subtitles import generate_subtitles
-from scripts.seo_optimizer import build_title, build_description, build_tags
+from scripts.youtube_uploader import upload_youtube_video
 from scripts.thumbnail_generator import generate_thumbnail
+from scripts.seo_optimizer import build_title_desc_hashtags
+from scripts.subtitles import generate_subtitles
+from scripts.pexels_pixabay_fetcher import fetch_video_clips
+from scripts.utils import safe_mkdir
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("main_orchestrator")
+log = logging.getLogger("main")
 
 BASE = Path(__file__).resolve().parent.parent
 DATA = BASE / "data"
-OUT = BASE / "output"
-ensure_dir(DATA)
-ensure_dir(OUT)
+OUTPUT = BASE / "output"
+safe_mkdir(OUTPUT)
 
 
-# -------- GLOBAL CONFIG -------- #
-
+# TEST RUN (أول تشغيل)
 TEST = os.getenv("TEST_RUN", "true").lower() == "true"
 
-# 2 long videos + 4–6 shorts in production
-LONG_VIDEOS_PER_DAY = 2
-SHORTS_MIN = 4
-SHORTS_MAX = 6
 
-
-# -------- MAIN PIPELINE -------- #
-
-def process_long_for_animal(animal):
-    """
-    Creates one long video:
-    - Generates script
-    - Generates voice
-    - Gets clips + music
-    - Assembles video
-    - Generates subtitles
-    - Generates thumbnail
-    - Uploads to YouTube
-    """
+def process_long(animal):
     name = animal["name"]
-    logger.info(f"Processing LONG video for: {name}")
+    log.info(f"Processing LONG for: {name}")
 
-    # 1) Script (Mixed scientific + fun + viral)
-    script, facts = generate_facts_script(name)
+    # نص الفيديو
+    script, facts = generate_facts_script(name, num_facts_long=10)
 
-    # 2) Voice
-    voice_path = generate_voice_with_failover(script, preferred_gender=random.choice(["male", "female"]))
+    # تعليق صوتي
+    voice_path = generate_voice_with_fallback(script, gender="male")
 
-    # 3) Fetch clips
-    clips = fetch_animal_clips(name)
-    if not clips:
-        raise RuntimeError(f"No clips found for {name}")
+    # فيديوهات مجانية (Pexels + Pixabay)
+    clips = fetch_video_clips(name, count=4)
 
-    # 4) Fetch music
-    music = fetch_music_track()
-
-    # 5) Build title/description/SEO
-    title = build_title(name, facts)
-    description = build_description(name, facts)
-    tags = build_tags(name, facts)
-
-    # 6) Assemble full video
-    final_video = assemble_long_video(
+    # تجميع الفيديو
+    video_path = assemble_long_video(
         clips_paths=clips,
         voice_path=voice_path,
-        music_path=music,
-        title_text=name.title(),
+        title_text=name,
     )
 
-    # 7) Subtitles
-    subs_path = generate_subtitles(script, final_video)
+    # صورة مصغرة
+    thumb = generate_thumbnail(name)
 
-    # 8) Thumbnail
-    thumb_path = generate_thumbnail(name)
+    # ترجمة
+    subs = generate_subtitles(script)
 
-    # 9) Upload
-    upload_id = upload_to_youtube(
-        filepath=final_video,
-        title=title,
-        description=description,
-        tags=tags,
-        thumbnail=thumb_path,
-        subtitles=subs_path,
-        privacy="public"
+    # SEO
+    title, desc, tags = build_title_desc_hashtags(name, facts, long=True)
+
+    # رفع اليوتيوب
+    upload_youtube_video(
+        video_path,
+        title,
+        desc,
+        thumb,
+        tags,
+        subs,
+        privacy="public",
     )
 
-    return upload_id
+    return video_path
 
 
-def process_short_for_animal(animal):
+def process_short(animal):
     name = animal["name"]
-    logger.info(f"Processing SHORT for: {name}")
+    log.info(f"Processing SHORT for: {name}")
 
-    # Script → one fact
-    _, facts = generate_facts_script(name, short_mode=True)
-    short_fact = facts[0]
+    script, facts = generate_facts_script(name, num_facts_short=1)
 
-    # Fetch short clip
-    clips = fetch_animal_clips(name, short_mode=True)
-    if not clips:
-        raise RuntimeError(f"No short clips found for {name}")
+    # لا تعليق صوتي في الشورتس
+    voice = None
 
-    # Music (no voice)
-    music = fetch_music_track()
+    # فيديوهات مجانية
+    clips = fetch_video_clips(name, count=1)
 
-    # Assemble
-    short_video = assemble_short_video(
-        clip_path=clips[0],
-        music_path=music,
-    )
+    # تجميع شورت
+    short_path = assemble_short_video(clips[0])
 
-    title = f"{name.title()} Fact You Didn't Know!"
-    description = f"Amazing {name} fact: {short_fact}"
-    tags = [name, "animals", "wildlife", "shorts"]
+    # صورة مصغرة (لرفع اليوتيوب، اليوتيوب لا يعرضها ولكن نرفعها)
+    thumb = generate_thumbnail(name)
 
-    upload_id = upload_to_youtube(
-        filepath=short_video,
-        title=title,
-        description=description,
-        tags=tags,
-        thumbnail=None,
+    # SEO
+    title, desc, tags = build_title_desc_hashtags(name, facts, long=False)
+
+    upload_youtube_video(
+        short_path,
+        title,
+        desc,
+        thumb,
+        tags,
         subtitles=None,
-        is_short=True,
-        privacy="public"
+        privacy="public",
+        short=True,
     )
 
-    return upload_id
+    return short_path
 
 
-def run_first_run():
-    """
-    FIRST RUN = 1 long + 1 short
-    This ensures:
-    - API keys working
-    - Upload works
-    - MoviePy works
-    - Voice works
-    - Clips & music working
-    """
-    logger.info("FIRST_RUN enabled. Running 1 long + 1 short validation.")
+def run_daily():
+    log.info("Picking animals...")
+    animals = pick_animals(7)   # 2 long + 5 shorts
 
-    animals = pick_animals(2)
-
-    # LONG
-    try:
-        process_long_for_animal(animals[0])
-    except Exception as e:
-        logger.error(f"First long failed: {e}")
-
-    # SHORT
-    try:
-        process_short_for_animal(animals[1])
-    except Exception as e:
-        logger.error(f"First short failed: {e}")
-
-    logger.info("FIRST_RUN completed.")
-
-
-def run_production():
-    """
-    Daily production:
-    2 longs + 4–6 shorts
-    Distributed across best times for US audience
-    """
-    logger.info("PRODUCTION MODE: Running daily jobs")
-
-    animals_long = pick_animals(LONG_VIDEOS_PER_DAY)
-    animals_short = pick_animals(random.randint(SHORTS_MIN, SHORTS_MAX))
-
-    # LONG videos
-    for a in animals_long:
+    # 2 long
+    for a in animals[:2]:
         try:
-            process_long_for_animal(a)
+            process_long(a)
         except Exception as e:
-            logger.error(f"Long failed: {e}")
+            log.error(f"Long failed: {e}")
 
-    # SHORT videos
-    for a in animals_short:
+    # 4~5 shorts
+    for a in animals[2:]:
         try:
-            process_short_for_animal(a)
+            process_short(a)
         except Exception as e:
-            logger.error(f"Short failed: {e}")
-
-    logger.info("Daily production completed.")
+            log.error(f"Short failed: {e}")
 
 
-# ------------ ENTRY POINT ------------ #
+def run_test():
+    animals = pick_animals(2)   # 1 long + 1 short
+    process_long(animals[0])
+    process_short(animals[1])
+
 
 if __name__ == "__main__":
-    logger.info(f"TEST_RUN={TEST}")
-
-    # If TEST_RUN=True → publish only 1 long + 1 short
+    log.info(f"TEST_RUN = {TEST}")
     if TEST:
-        run_first_run()
+        run_test()
     else:
-        run_production()
+        run_daily()
