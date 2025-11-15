@@ -1,7 +1,7 @@
 name: Daily Upload (Production)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}       # ← إصلاح المشكلة
   push:
     branches: [ "main" ]
   schedule:
@@ -46,7 +46,6 @@ jobs:
             echo "Retry pip install ($tries)"
             sleep 3
           done
-          # ensure moviepy and imageio-ffmpeg installed inside venv
           pip install --no-cache-dir moviepy imageio-ffmpeg || true
 
       - name: Show installed packages (debug)
@@ -67,7 +66,6 @@ PY
       - name: Run automation
         env:
           PYTHONPATH: ${{ github.workspace }}
-          # set TEST_RUN in secrets to 'true' for first-run test publishing
           TEST_RUN: ${{ secrets.TEST_RUN_OVERRIDE }}
           WATERMARK_TEXT: "@WildPlanetFacts"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
