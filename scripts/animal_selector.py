@@ -1,35 +1,65 @@
-#!/usr/bin/env python3
-import json, random
+# scripts/animal_selector.py
+
+import json
+import random
 from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / 'data' / 'animal_database.json'
-USED = ROOT / 'data' / 'used_animals.json'
 
-def load_db():
-    return json.load(open(DB, 'r', encoding='utf-8'))
+DATA_DIR = Path("data")
+USED_FILE = DATA_DIR / "used_animals.json"
 
-def get_used():
-    try:
-        return json.load(open(USED, 'r', encoding='utf-8'))
-    except Exception:
-        return []
+# ======================================================
+# 1) قائمة الحيوانات الأساسية (حسب طلبك)
+# ======================================================
+ANIMAL_LIST = [
+    "lion", "tiger", "elephant", "giraffe", "zebra", "hippopotamus",
+    "rhinoceros", "cheetah", "leopard", "bear", "wolf", "fox",
+    "kangaroo", "koala", "panda", "chimpanzee", "gorilla", "orangutan",
+    "hyena", "buffalo", "camel", "ostrich", "emu", "eagle", "falcon",
+    "albatross", "penguin", "seal", "dolphin", "whale", "shark",
+    "octopus", "jellyfish", "crocodile", "alligator", "cobra",
+    "python", "king cobra", "rattlesnake", "frog", "toad", "salamander",
+    "butterfly", "bee", "ant", "grasshopper", "cricket", "tarantula",
+    "scorpion", "praying mantis"
+]
 
-def mark_used(name):
-    used = get_used()
-    used.insert(0, name)
-    used = used[:500]
-    json.dump(used, open(USED, 'w', encoding='utf-8'), indent=2)
+# ======================================================
+# 2) تحميل سجل الحيوانات المستخدمة
+# ======================================================
+def load_used():
+    if USED_FILE.exists():
+        try:
+            return json.loads(USED_FILE.read_text())
+        except:
+            return []
+    return []
 
-def pick_n(n=2):
-    db = load_db()
-    used = set(get_used())
-    candidates = [e for e in db if e['name'] not in used]
-    if len(candidates) < n:
-        candidates = db
-    picked = random.sample(candidates, k=n)
-    for p in picked:
-        mark_used(p['name'])
+# ======================================================
+# 3) حفظ السجل
+# ======================================================
+def save_used(lst):
+    USED_FILE.write_text(json.dumps(lst, indent=2))
+
+# ======================================================
+# 4) اختيار الحيوانات لليوم
+# ======================================================
+def pick_animals(num_needed: int):
+    """
+    Picks N unique animals without repeating previous runs.
+    When exhausted, automatically resets the used list.
+    """
+    used = load_used()
+    available = [a for a in ANIMAL_LIST if a not in used]
+
+    # لو خلصوا — نصفر القائمة
+    if len(available) < num_needed:
+        used = []
+        save_used(used)
+        available = ANIMAL_LIST.copy()
+
+    picked = random.sample(available, num_needed)
+
+    # تحديث المستخدم
+    new_used = used + picked
+    save_used(new_used)
+
     return picked
-
-if __name__ == '__main__':
-    print([p['name'] for p in pick_n(3)])
