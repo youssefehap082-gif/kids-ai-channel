@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json, random
-DB = 'data/animal_database.json'
-USED = 'data/used_animals.json'
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+DB = ROOT / 'data' / 'animal_database.json'
+USED = ROOT / 'data' / 'used_animals.json'
 
 def load_db():
     return json.load(open(DB, 'r', encoding='utf-8'))
