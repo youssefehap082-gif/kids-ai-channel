@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import math
 def make_srt(lines, out_path):
     # lines: list of tuples (start_seconds, end_seconds, text)
     def fmt(t):
