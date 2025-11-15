@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, TextClip
 from pathlib import Path
 TMP = Path(__file__).resolve().parent / 'tmp'
 TMP.mkdir(exist_ok=True)
 
+def _import_moviepy():
+    try:
+        from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, TextClip
+        return VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, TextClip
+    except Exception as e:
+        raise ImportError(
+            "moviepy import failed. Ensure moviepy and imageio-ffmpeg are installed. "
+            "In GH Actions add 'pip install moviepy imageio-ffmpeg' or check logs. Original error: " + str(e)
+        )
+
 def assemble_long(clips, voicefile, music=None, title_text=None, outp=None):
+    VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, TextClip = _import_moviepy()
     clips_objs = []
     for c in clips:
         try:
@@ -22,11 +32,10 @@ def assemble_long(clips, voicefile, music=None, title_text=None, outp=None):
             final = final.set_audio(voice_audio)
         except Exception:
             pass
-    # optional music mix (simple replacement if desired)
+    # optional music mix (simple)
     if music:
         try:
             music_audio = AudioFileClip(str(music)).volumex(0.08)
-            # keep voice primary — complex mixing omitted for stability
             final = final.set_audio(voice_audio)
         except Exception:
             pass
@@ -43,11 +52,12 @@ def assemble_long(clips, voicefile, music=None, title_text=None, outp=None):
     return str(outp)
 
 def assemble_short(clip, music=None, outp=None):
+    VideoFileClip, _, AudioFileClip, _, _ = _import_moviepy()
     try:
         v = VideoFileClip(str(clip))
         c = v.subclip(0, min(20, v.duration))
     except Exception as e:
-        raise
+        raise RuntimeError(f"Failed to open short clip {clip}: {e}")
     if music:
         try:
             m = AudioFileClip(str(music)).volumex(0.2)
