@@ -1,54 +1,74 @@
 name: Daily Upload (Production)
 
 on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
   schedule:
-    - cron: '0 7 * * *'    # 07:00 UTC daily
-  workflow_dispatch: {}
+    - cron: "0 7 * * *"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install ffmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Create venv
+      - name: Create venv and activate
         run: |
           python3 -m venv venv
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
-
-      - name: Install Python dependencies
-        run: |
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install moviepy --force-reinstall
-          pip install imageio imageio-ffmpeg
 
-      - name: Show installed packages
+      - name: Install Python dependencies (inside venv with retries)
+        shell: bash
         run: |
           source venv/bin/activate
-          pip list
+          tries=0
+          until [ $tries -ge 3 ]
+          do
+            pip install -r requirements.txt && break
+            tries=$((tries+1))
+            echo "Retry pip install ($tries)"
+            sleep 3
+          done
+          # ensure moviepy and imageio-ffmpeg installed inside venv
+          pip install --no-cache-dir moviepy imageio-ffmpeg || true
 
-      - name: Fix Python path
+      - name: Show installed packages (debug)
         run: |
-          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          source venv/bin/activate
+          python - <<'PY'
+import importlib, sys
+print("Python:", sys.executable)
+print("moviepy:", importlib.util.find_spec("moviepy") is not None)
+print("moviepy.editor:", importlib.util.find_spec("moviepy.editor") is not None)
+import pkgutil
+print("Installed top packages:", [m.name for m in pkgutil.iter_modules()][:40])
+PY
+
+      - name: Export PYTHONPATH
+        run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
       - name: Run automation
         env:
-          # set TEST_RUN=true for manual test run; set to 'false' for full daily production
-          TEST_RUN: ${{ secrets.TEST_RUN_OVERRIDE }}   # or set here 'true' for immediate test
+          PYTHONPATH: ${{ github.workspace }}
+          # set TEST_RUN in secrets to 'true' for first-run test publishing
+          TEST_RUN: ${{ secrets.TEST_RUN_OVERRIDE }}
           WATERMARK_TEXT: "@WildPlanetFacts"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
@@ -62,5 +82,4 @@ jobs:
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
         run: |
           source venv/bin/activate
-          echo "PYTHONPATH is: $PYTHONPATH"
           python3 scripts/main.py
