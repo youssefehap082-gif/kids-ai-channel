@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-import argparse, json, time, warnings
+import argparse, json, time, warnings, logging
 import wikipedia
 from bs4 import BeautifulSoup
 warnings.filterwarnings('ignore', category=UserWarning)
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('fetch_wikipedia')
 
 def safe_page(title):
     try:
@@ -18,10 +20,10 @@ def safe_page(title):
 
 def extract_facts_from_text(text, maxfacts=10):
     s = text.replace('\n',' ').strip()
-    # split by sentences (naive)
     sents = [x.strip() for x in s.split('. ') if x.strip()]
     facts = []
     for sent in sents:
+        # simple length threshold
         if len(sent) > 40:
             facts.append(sent if sent.endswith('.') else sent + '.')
         if len(facts) >= maxfacts:
@@ -41,8 +43,8 @@ def main(input_path, output_path):
                 entry['summary'] = page.summary
                 entry['source'] = getattr(page, 'url', '')
                 entry['facts'] = extract_facts_from_text(entry['summary'], maxfacts=10)
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Failed parse summary for %s: %s", name, e)
 
         if not entry['facts']:
             # try HTML paragraphs
@@ -61,14 +63,13 @@ def main(input_path, output_path):
                 pass
 
         if not entry['facts']:
-            # fallback minimal safe facts
             entry['summary'] = entry['summary'] or f"{name} is an animal."
-            entry['facts'] = [f"{name} is known for its characteristic.", f"{name} appears in various habitats."]
+            entry['facts'] = [f"{name} is known for its characteristics.", f"{name} appears in various habitats."]
             while len(entry['facts']) < 5:
                 entry['facts'].append(f"Additional fact about {name}.")
 
         db.append(entry)
-        time.sleep(0.3)  # polite pause
+        time.sleep(0.2)
 
     with open(output_path, 'w', encoding='utf-8') as out:
         json.dump(db, out, ensure_ascii=False, indent=2)
