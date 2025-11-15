@@ -1,33 +1,56 @@
-import random
-import json
-from pathlib import Path
+#!/usr/bin/env python3
+import json, os
 
-BASE = Path(__file__).resolve().parent.parent
-DB = BASE / "data" / "animal_database.json"
+DB_PATH = 'data/animal_database.json'
 
 def load_db():
-    if not DB.exists():
-        raise RuntimeError("animal_database.json is missing. Run fetch_wikipedia first.")
-    with open(DB, "r", encoding="utf-8") as f:
+    with open(DB_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def generate_facts_script(animal_name, num_facts_long=10, num_facts_short=1):
-    """
-    Generates:
-      - long video script (10 facts)
-      - short script (1 fact)
-    """
+def find_entry(name):
     db = load_db()
+    name_lower = name.lower()
+    for e in db:
+        if e.get('name','').lower() == name_lower:
+            return e
+    return None
 
-    entry = next((x for x in db if x["name"].lower() == animal_name.lower()), None)
+def generate_scientific(entry, n=10):
+    facts = entry.get('facts', [])[:n]
+    title = f"{entry['name'].title()} — 10 Scientific Facts"
+    desc = entry.get('summary','') + "\n\n" + "\n".join(["- " + f for f in facts])
+    return title, desc, facts
+
+def generate_mixed(entry, n=10):
+    facts = entry.get('facts', [])[:n]
+    mixed = []
+    for i, f in enumerate(facts):
+        if i % 3 == 2:
+            mixed.append(f + " Surprisingly, many people don't know this.")
+        else:
+            mixed.append(f)
+    title = f"{entry['name'].title()} — 10 Surprising Facts"
+    desc = entry.get('summary','') + "\n\n" + "\n".join(["- " + f for f in mixed])
+    return title, desc, mixed
+
+def generate_viral(entry, n=1):
+    facts = entry.get('facts', [])
+    headline = facts[0] if facts else f"{entry['name'].title()} is incredible."
+    title = f"Did you know? {entry['name'].title()}"
+    desc = headline + "\n#shorts"
+    return title, desc, [headline]
+
+def generate_for(name):
+    entry = find_entry(name)
     if not entry:
-        raise RuntimeError(f"No facts found in DB for {animal_name}")
+        entry = {'name': name, 'summary': '', 'facts': [f"{name} is an animal."]}
+    return {
+        'scientific': generate_scientific(entry, 10),
+        'mixed': generate_mixed(entry, 10),
+        'viral': generate_viral(entry, 1)
+    }
 
-    facts = entry["facts"]
-    if len(facts) < num_facts_long:
-        num_facts_long = len(facts)
-
-    long_script = facts[:num_facts_long]
-    short_script = [random.choice(facts)]
-
-    return long_script, short_script
+if __name__ == '__main__':
+    import sys
+    n = sys.argv[1] if len(sys.argv) > 1 else 'lion'
+    print(generate_for(n))
