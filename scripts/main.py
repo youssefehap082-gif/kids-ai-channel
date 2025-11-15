@@ -27,7 +27,7 @@ def run_first_run():
     music = 'assets/music/background.wav'
     watermark = 'assets/watermark.png'
     long_video = assemble_long_video(clips, voice_path=voice, music_path=music, title_text=f"10 Facts About {animal}", watermark_path=watermark)
-    short_video = assemble_short(clips, voice_path=voice, music_path=music, watermark_path=watermark, max_duration=20)
+    short_video = assemble_short(clips, voice_path=voice, music_path=music, watermark_path=watermark, voice_duration=15, max_duration=60)
     # Upload (production)
     resp = upload_video(long_video, f"10 Facts About {animal}", 'Watch 10 amazing facts.', tags=[animal,'facts','animals'], privacyStatus='public')
     vid_id = resp.get('id') if isinstance(resp, dict) else None
