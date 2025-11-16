@@ -1,24 +1,9 @@
-# Run checklist — Production upload
+# youtube-animal-automation
 
-1. تأكد من إضافة الملفات أعلاه في نفس شجرة المشروع.
-2. أضف Secrets في GitHub repo -> Settings -> Secrets and variables -> Actions:
-   - PEXELS_API_KEY
-   - PIXABAY_API_KEY
-   - ELEVEN_API_KEY
-   - OPENAI_API_KEY (optional)
-   - YT_CLIENT_ID
-   - YT_CLIENT_SECRET
-   - YT_REFRESH_TOKEN
-   - YT_CHANNEL_ID
-3. للتأكد محلياً: شغّل:
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   python3 scripts/main.py --publish-mode test
-   (يجب أن يرفع 1 long + 1 short إذا كانت المفاتيح صحيحة)
-4. لإعداد GitHub:
-   - Commit كل الملفات
-   - Push إلى main
-   - اذهب إلى Actions -> Daily Upload -> Run workflow
-   - راقب الـ logs؛ أي خطأ انسخه وأرسله لي وسأصلحه فوراً.
-5. ملاحظة هامة: YouTube uploader يتطلب `YT_REFRESH_TOKEN` صالح; بدونها لن يتم الرفع الفعلي.
+Automated YouTube channel pipeline to publish daily animal videos.
+
+## Quick start
+1. Add secrets in GitHub repo: OPENAI_API_KEY, ELEVEN_API_KEY, GEMINI_API_KEY, PEXELS_API_KEY, PIXABAY_API_KEY, REPLICATE_API_TOKEN, YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN, YT_CHANNEL_ID.
+2. Populate `data/animal_list.txt` (one species per line). Optionally add a large list (1500).
+3. Confirm `.github/workflows/daily_upload.yml` present.
+4. Push to `main` and run workflow manually (first run is TEST by default - set TEST_RUN secret to "true"/"false" accordingly).
