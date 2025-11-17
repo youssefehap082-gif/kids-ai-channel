@@ -1,0 +1,13 @@
+requests
+pillow
+python-dotenv
+cloudinary
+boto3
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+openai==1.13.3
+elevenlabs
+replicate
+beautifulsoup4
