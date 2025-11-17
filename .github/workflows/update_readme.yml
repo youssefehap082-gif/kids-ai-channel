@@ -3,7 +3,11 @@ name: Update README Timestamp
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *"   # تحديث كل 6 ساعات
+    - cron: '0 */6 * * *' # كل 6 ساعات
+
+# امنح صلاحية كتابة للملفات في هذا الـ workflow
+permissions:
+  contents: write
 
 jobs:
   update-readme:
@@ -12,19 +16,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          # تأكد من الاحتفاظ بالأذونات لتمكين push
+          persist-credentials: true
+          fetch-depth: 0
 
-      - name: Update timestamp
+      - name: Update timestamp in README
         run: |
-          echo "Last updated: $(date)" > README.md
+          echo "Last updated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" > README.md
 
       - name: Commit changes
         run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
           git add README.md
           git commit -m "Update README timestamp" || echo "No changes to commit"
 
-      - name: Push changes
+      - name: Push changes back to main
         uses: ad-m/github-push-action@v0.6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+          directory: .
