@@ -1,7 +1,10 @@
 name: Test Detect Workflow
 
 on:
+  # علشان يظهر زرار Run Workflow
   workflow_dispatch:
+
+  # تشغيل تلقائي عند أي push على الفرعين
   push:
     branches:
       - main
@@ -14,11 +17,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: Show current branch
-        run: echo "Current branch: ${{ github.ref }}"
-
-      - name: Detect files
+      - name: Print branch info
         run: |
-          echo "Running detection test..."
+          echo "Current branch: ${{ github.ref }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit SHA: ${{ github.sha }}"
+
+      - name: List repository files
+        run: |
+          echo "Listing files..."
           ls -la
+
+      - name: Success message
+        run: |
+          echo "Test Detect Workflow completed successfully!"
