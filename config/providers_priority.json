@@ -1,5 +1,29 @@
-﻿{
-  "text": ["openai", "gemini", "groq", "wikipedia"],
-  "tts": ["elevenlabs", "openai", "gemini", "gtts"],
-  "media": ["pexels", "pixabay", "storyblocks", "vecteezy"]
+{
+  "text": [
+    "openai",
+    "gemini",
+    "groq",
+    "replicate",
+    "wikipedia"
+  ],
+  "tts": [
+    "elevenlabs",
+    "openai",
+    "gemini",
+    "gtts"
+  ],
+  "media": [
+    "pexels",
+    "pixabay",
+    "coverr",
+    "storyblocks",
+    "vecteezy",
+    "cloudinary"
+  ],
+  "image_generation": [
+    "replicate",
+    "openai",
+    "gemini",
+    "cloudinary"
+  ]
 }
