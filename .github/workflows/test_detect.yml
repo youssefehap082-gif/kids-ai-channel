@@ -1,11 +1,24 @@
 name: Test Detect Workflow
 
 on:
+  workflow_dispatch:
   push:
+    branches:
+      - main
+      - automation/add-pipeline
 
 jobs:
-  hello:
+  test_detect:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Hello
-        run: echo "Workflow detected on branch $GITHUB_REF"
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Show current branch
+        run: echo "Current branch: ${{ github.ref }}"
+
+      - name: Detect files
+        run: |
+          echo "Running detection test..."
+          ls -la
