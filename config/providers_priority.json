@@ -1,0 +1,5 @@
+﻿{
+  "text": ["openai", "gemini", "groq", "wikipedia"],
+  "tts": ["elevenlabs", "openai", "gemini", "gtts"],
+  "media": ["pexels", "pixabay", "storyblocks", "vecteezy"]
+}
