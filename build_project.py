@@ -534,3 +534,67 @@ This is a self-healing, fully automated content factory that runs on GitHub Acti
 ```bash
 pip install -r requirements.txt
 python scripts/pipeline_runner.py
+# Create folders
+dirs = [
+    "kids-ai-channel/.github/workflows",
+    "kids-ai-channel/scripts/utils",
+    "kids-ai-channel/templates",
+    "kids-ai-channel/config",
+    "kids-ai-channel/data/temp",
+    "kids-ai-channel/data/output",
+    "kids-ai-channel/logs",
+    "kids-ai-channel/analytics"
+]
+for d in dirs:
+    os.makedirs(d, exist_ok=True)
+
+# Write Configs
+write_file("config/channel_config.json", json.dumps(channel_config, indent=4))
+write_file("config/providers_priority.json", json.dumps(providers_priority, indent=4))
+write_file("config/retry_config.json", json.dumps(retry_config, indent=4))
+write_file("config/publish_schedule.json", json.dumps(publish_schedule, indent=4))
+write_file("config/patch_overrides.json", "{}")
+
+# Write Data Placeholders
+write_file("data/animal_list.txt", '["Lion", "Tiger", "Bear", "Eagle", "Shark", "Octopus", "Wolf"]')
+write_file("data/used_animals.json", "[]")
+
+# Write GitHub Workflow
+write_file(".github/workflows/produce.yml", workflow_yaml)
+
+# Write Scripts
+write_file("scripts/pipeline_runner.py", pipeline_runner_py)
+write_file("scripts/generate_script.py", generate_script_py)
+write_file("scripts/fetch_media.py", fetch_media_py)
+write_file("scripts/tts.py", tts_py)
+write_file("scripts/render_video.py", render_video_py)
+write_file("scripts/upload_youtube.py", upload_youtube_py)
+write_file("scripts/error_recovery.py", error_recovery_py)
+write_file("scripts/community_manager.py", community_manager_py)
+write_file("scripts/__init__.py", "")
+
+# Write Utils
+write_file("scripts/utils/http.py", utils_http_py)
+write_file("scripts/utils/file_tools.py", utils_file_tools_py)
+write_file("scripts/utils/__init__.py", "")
+
+# Write Root Files
+write_file("requirements.txt", requirements_txt)
+write_file("Dockerfile", dockerfile_content)
+write_file("Makefile", makefile_content)
+write_file("README.md", readme_content)
+
+print("Project files generated successfully.")
+
+# Zip it up
+print("Zipping project...")
+with zipfile.ZipFile("kids-ai-channel.zip", 'w', zipfile.ZIP_DEFLATED) as zipf:
+    for root, dirs, files in os.walk(PROJECT_ROOT):
+        for file in files:
+            file_path = os.path.join(root, file)
+            arcname = os.path.relpath(file_path, start=PROJECT_ROOT)
+            zipf.write(file_path, arcname)
+
+print(f"DONE! Download 'kids-ai-channel.zip' now.")
+if name == "main":
+build_project()
