@@ -2,6 +2,10 @@ import os
 from gtts import gTTS
 
 def generate_audio(script_data):
+    # === FIX: Ensure temp directory exists ===
+    os.makedirs("data/temp", exist_ok=True)
+    # =========================================
+
     # Logic: ElevenLabs -> OpenAI -> gTTS
     audio_files = []
     for i, segment in enumerate(script_data['segments']):
@@ -25,6 +29,10 @@ def _openai_tts(text, filename):
     return False
 
 def _gtts_fallback(text, filename):
-    tts = gTTS(text=text, lang='en')
-    tts.save(filename)
-    return True
+    try:
+        tts = gTTS(text=text, lang='en')
+        tts.save(filename)
+        return True
+    except Exception as e:
+        print(f"gTTS Failed: {e}")
+        return False
