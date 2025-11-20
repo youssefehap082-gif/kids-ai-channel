@@ -7,9 +7,6 @@ os.makedirs("logs", exist_ok=True)
 os.makedirs("data/temp", exist_ok=True)
 os.makedirs("data/output", exist_ok=True)
 
-# Allow Text Writing
-os.system("sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml")
-
 from scripts import (
     generate_script, fetch_media, tts, render_video, 
     upload_youtube, community_manager, error_recovery

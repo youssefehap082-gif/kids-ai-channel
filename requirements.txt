@@ -9,11 +9,14 @@ gTTS
 moviepy==1.0.3
 requests
 cloudinary
-pillow
-numpy
+Pillow==9.5.0
+numpy<2.0.0
 pandas
 schedule
 tqdm
 colorama
 beautifulsoup4
 wikipedia-api
+imageio==2.4.1
+imageio-ffmpeg==0.4.2
+decorator==4.4.2
