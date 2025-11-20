@@ -17,6 +17,6 @@ tqdm
 colorama
 beautifulsoup4
 wikipedia-api
-imageio==2.4.1
-imageio-ffmpeg==0.4.2
 decorator==4.4.2
+imageio-ffmpeg==0.4.2
+# Removed specific imageio version to let moviepy decide
