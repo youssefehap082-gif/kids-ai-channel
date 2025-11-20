@@ -3,62 +3,52 @@ import json
 import random
 import logging
 import google.generativeai as genai
-from scripts.utils import file_tools
 
 def select_topic():
-    # Rotating topics to ensure variety
     topics = ["Lion", "Eagle", "Shark", "Wolf", "Tiger", "Bear", "Crocodile", "Elephant"]
     return random.choice(topics)
 
 def generate_full_script(topic):
     logging.info(f"Generating AI Script for: {topic}")
     
-    # Try Gemini First (Free & Fast)
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-pro')
+            # Updated Model Name
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
             prompt = f"""
             You are a professional YouTube scriptwriter. Create a viral script about "{topic}".
-            Structure:
-            1. Title: Catchy and SEO optimized.
-            2. Description: For YouTube video description with hashtags.
-            3. Segments: Exactly 10 segments. Each segment must have:
-               - "text": 2 sentences of narration (engaging facts).
-               - "keywords": 1 specific visual search term for stock video (e.g., "{topic} hunting", "{topic} eyes").
-            
-            Output strictly valid JSON:
+            Output strictly valid JSON with this structure:
             {{
                 "topic": "{topic}",
                 "title": "...",
                 "description": "...",
-                "hashtags": ["#tag1", "#tag2"],
+                "hashtags": ["#tag1"],
                 "segments": [
-                    {{"text": "...", "keywords": ["..."]}},
-                    ...
+                    {{"text": "sentence 1", "keywords": ["{topic} run"]}},
+                    {{"text": "sentence 2", "keywords": ["{topic} hunt"]}}
                 ]
             }}
             """
             response = model.generate_content(prompt)
-            # Clean up response to ensure valid JSON
-            clean_json = response.text.replace("```json", "").replace("```", "")
-            return json.loads(clean_json)
+            text = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(text)
         except Exception as e:
-            logging.error(f"Gemini Error: {e}")
+            logging.error(f"Gemini Error: {e} -> Using Fallback.")
     
-    # Fallback if AI fails (Basic Template)
+    # Fallback Template
     return {
         "topic": topic,
         "title": f"10 Amazing Facts About {topic}",
         "description": f"Learn about {topic}...",
         "hashtags": ["#animals", f"#{topic}"],
         "segments": [
-            {"text": f"The {topic} is one of the most fascinating animals.", "keywords": [topic]},
-            {"text": "They are known for their incredible strength.", "keywords": [f"{topic} running"]},
-            {"text": "Few people know this secret fact about them.", "keywords": [f"{topic} face"]},
-            {"text": "They can survive in extreme conditions.", "keywords": [f"{topic} nature"]},
-            {"text": "Subscribe for more amazing animal facts.", "keywords": ["subscribe animation"]}
+            {"text": f"The {topic} is a powerful creature found in nature.", "keywords": [topic]},
+            {"text": "They are known for their incredible speed and agility.", "keywords": [f"{topic} running"]},
+            {"text": "Scientists have studied their behavior for decades.", "keywords": [f"{topic} wild"]},
+            {"text": "Their hunting skills are unmatched in the animal kingdom.", "keywords": [f"{topic} hunting"]},
+            {"text": "Subscribe to our channel for more animal facts.", "keywords": ["nature landscape"]}
         ]
     }
