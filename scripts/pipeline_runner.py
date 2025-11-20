@@ -6,6 +6,10 @@ from scripts import (
     upload_youtube, community_manager, error_recovery
 )
 
+# === FIX: Ensure logs directory exists ===
+os.makedirs("logs", exist_ok=True)
+# =========================================
+
 # Setup Logging
 logging.basicConfig(
     level=logging.INFO,
