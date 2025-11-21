@@ -2,7 +2,7 @@ import os
 import json
 
 # ==========================================
-# PHASE 5: LONG FORM + THUMBNAILS + SMART LOGIC
+# PHASE 6: VIRAL UPDATE (SEO, MUSIC FIX, MEGA LIST)
 # ==========================================
 
 PROJECT_NAME = "." 
@@ -15,152 +15,110 @@ def create_file(path, content):
     print(f"📄 Updated: {path}")
 
 def main():
-    print("🚀 INSTALLING PHASE 5 (THE EMPIRE UPDATE)...")
+    print("🚀 INSTALLING PHASE 6 (VIRAL ENGINES)...")
 
-    # 1. CONTENT ENGINE (Smart: Long vs Short)
+    # 1. MEGA ANIMALS LIST (No More Duplicates)
+    animals_data = {
+        "categories": {
+            "Predators": ["Lion", "Tiger", "Jaguar", "Polar Bear", "Komodo Dragon", "Great White Shark", "Crocodile", "Leopard", "Wolf", "Hyena"],
+            "Cute": ["Red Panda", "Quokka", "Sea Otter", "Capybara", "Fennec Fox", "Koala", "Sloth", "Meerkat", "Hedgehog", "Penguin"],
+            "Ocean": ["Octopus", "Blue Whale", "Mantis Shrimp", "Seahorse", "Jellyfish", "Narwhal", "Giant Squid", "Orca", "Hammerhead Shark"],
+            "Birds": ["Shoebill Stork", "Peregrine Falcon", "Owl", "Parrot", "Flamingo", "Peacock", "Eagle", "Hummingbird", "Toucan"],
+            "Insects": ["Praying Mantis", "Hercules Beetle", "Butterfly", "Tarantula", "Scorpion", "Honey Bee", "Ant Colony"],
+            "Weird": ["Platypus", "Blobfish", "Axolotl", "Pangolin", "Tapir", "Aye-Aye", "Star-nosed Mole"]
+        }
+    }
+    create_file("config/animals_list.json", json.dumps(animals_data, indent=4))
+
+    # 2. CONTENT ENGINE (Viral SEO + Templates)
     content_engine = """
 import random
 
 def generate_script(animal_name, mode="short"):
-    print(f"📝 Writing Script ({mode} mode) for: {animal_name}")
+    print(f"📝 Writing Viral Script ({mode}) for: {animal_name}")
     
-    # قاعدة بيانات بسيطة (يمكن توسيعها لاحقاً)
-    facts_db = [
-        f"{animal_name} can sleep for 12 hours straight.",
-        f"They have a unique way of communicating.",
-        f"Baby {animal_name}s are called cubs or pups.",
-        f"They are found mostly in specific jungles.",
-        f"Their diet consists mainly of specialized food.",
-        f"They are excellent swimmers.",
-        f"The {animal_name} population is considered endangered in some areas."
+    # Viral Hooks
+    hooks = [
+        f"You won't believe this about the {animal_name}!",
+        f"This is why the {animal_name} is the craziest animal on earth.",
+        f"Stop scrolling! Look at this {animal_name}.",
+        f"The shocking truth about the {animal_name}.",
+        f"Never get close to a {animal_name}, here is why."
     ]
-    random.shuffle(facts_db)
+    
+    # Facts Template (Generic to ensure it works for all)
+    facts = [
+        f"The {animal_name} has abilities that scientists can't fully explain.",
+        f"They are known to survive in extreme conditions.",
+        f"Their hunting strategy is absolutely unique in the animal kingdom.",
+        f"A baby {animal_name} is one of the cutest things you will ever see.",
+        f"They can move faster than you think.",
+        f"Their population is rare and they are hard to find in the wild.",
+        f"They have a very special way of communicating with each other."
+    ]
+    random.shuffle(facts)
+    
+    hook = random.choice(hooks)
     
     if mode == "long":
-        # فيديو طويل: 5-7 حقائق + مقدمة وخاتمة أطول
-        selected_facts = facts_db[:6]
-        script_text = f"Welcome to our deep dive into the world of the {animal_name}. This creature is truly fascinating. Here are the top amazing facts. {'. '.join(selected_facts)}. Thank you for watching this documentary about the {animal_name}. Don't forget to like and subscribe!"
-        title = f"10 Amazing Facts About The {animal_name} 🌍 (Documentary)"
-        desc = f"Learn everything about the {animal_name} in this video.\\n#animals #wildlife #documentary #{animal_name.replace(' ', '')}"
+        # Long Form Structure
+        script_text = f"{hook} Welcome to the world of the {animal_name}. {facts[0]}. {facts[1]}. {facts[2]}. {facts[3]}. {facts[4]}. Truly an amazing creature. Thanks for watching!"
+        title = f"10 Shocking Facts About {animal_name} 🌍 (Documentary)"
+        desc = f"Discover the secrets of the {animal_name}. Amazing wildlife documentary.\\n\\n#animals #wildlife #{animal_name.replace(' ', '')} #nature #documentary"
+        tags = ["animals", "wildlife", "documentary", "nature", animal_name, "facts"]
     else:
-        # شورتس: 3 حقائق سريعة
-        selected_facts = facts_db[:3]
-        script_text = f"Did you know this about the {animal_name}? {selected_facts[0]}. {selected_facts[1]}. {selected_facts[2]}. Subscribe for more!"
-        title = f"{animal_name} Facts in 30 Seconds 😱 #shorts"
-        desc = f"Quick facts about {animal_name} #shorts #animals"
+        # Shorts Structure
+        script_text = f"{hook} Did you know? {facts[0]}. {facts[1]}. {facts[2]}. Subscribe for more!"
+        title = f"{animal_name} Facts that will Blow Your Mind 🤯 #shorts"
+        desc = f"Crazy facts about {animal_name} #shorts #animals #wildlife"
+        tags = ["shorts", "animals", "facts", "viral", animal_name]
 
     return {
         "title": title,
         "description": desc,
         "script_text": script_text,
-        "tags": ["animals", "wildlife", "nature", animal_name]
+        "tags": tags
     }
 """
     create_file("scripts/content_engine.py", content_engine)
 
-    # 2. MEDIA ENGINE (Landscape/Portrait + Thumbnails)
-    media_engine = """
+    # 3. VOICE ENGINE (Faster Speed = More Excitement)
+    voice_engine = """
+from gtts import gTTS
 import os
-import requests
 
-def gather_media(query, orientation="portrait"):
-    print(f"🎥 Searching Pexels for: {query} ({orientation})")
-    key = os.environ.get("PEXELS_API_KEY")
-    if not key: return []
-    
-    headers = {'Authorization': key}
-    # لو طويل هات Landscape، لو شورت هات Portrait
-    url = f"https://api.pexels.com/videos/search?query={query}&per_page=5&orientation={orientation}"
-    
+def generate_voice(text, output_path="assets/temp/voice.mp3"):
+    print("🎙️ Generating Voice (US Accent)...")
     try:
-        r = requests.get(url, headers=headers)
-        data = r.json()
-        links = []
-        for video in data.get('videos', []):
-            files = video.get('video_files', [])
-            best = sorted(files, key=lambda x: x['width'] * x['height'], reverse=True)[0]
-            links.append(best['link'])
-        return links
-    except Exception as e:
-        print(f"❌ Pexels Error: {e}")
-        return []
-
-def get_thumbnail_image(query, output_path="assets/temp/thumb_bg.jpg"):
-    print(f"🖼️ Downloading Thumbnail Image for: {query}")
-    key = os.environ.get("PEXELS_API_KEY")
-    headers = {'Authorization': key}
-    # نجيب صورة بالعرض دايماً للثامبنيل
-    url = f"https://api.pexels.com/v1/search?query={query}&per_page=1&orientation=landscape"
-    
-    try:
-        r = requests.get(url, headers=headers)
-        data = r.json()
-        if data.get('photos'):
-            img_url = data['photos'][0]['src']['large2x']
-            
-            img_data = requests.get(img_url).content
-            with open(output_path, 'wb') as f:
-                f.write(img_data)
-            return output_path
-    except:
-        pass
-    return None
-
-def download_video(url, filename):
-    r = requests.get(url, stream=True)
-    with open(filename, 'wb') as f:
-        for chunk in r.iter_content(chunk_size=1024):
-            f.write(chunk)
-    return filename
-"""
-    create_file("scripts/media_engine.py", media_engine)
-
-    # 3. EDITOR ENGINE (Auto-Thumbnail + Logic)
-    editor_engine = """
-import os
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip, TextClip, CompositeVideoClip
-from PIL import Image, ImageDraw, ImageFont
-
-# دالة لعمل الثامبنيل (كتابة على الصورة)
-def create_thumbnail(image_path, text, output_path="assets/temp/final_thumb.jpg"):
-    try:
-        img = Image.open(image_path)
-        # تعتيم الصورة شوية عشان الكتابة تبان
-        img = img.point(lambda p: p * 0.7)
-        
-        draw = ImageDraw.Draw(img)
-        
-        # محاولة تحميل خط، لو مش موجود نستخدم الافتراضي
-        try:
-            # خط عريض لو متاح في اللينكس
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
-        except:
-            font = ImageFont.load_default()
-
-        # كتابة العنوان في النص
-        # (تجاوزنا تعقيد توسيط النص للكود البسيط)
-        draw.text((50, 50), text, font=font, fill=(255, 255, 0)) # أصفر
-        
-        img.save(output_path)
-        print("✅ Thumbnail Created.")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # US Accent for better engagement
+        tts = gTTS(text=text, lang='en', tld='us', slow=False)
+        tts.save(output_path)
         return output_path
     except Exception as e:
-        print(f"⚠️ Thumbnail Gen Failed: {e}")
+        print(f"❌ TTS Error: {e}")
         return None
+"""
+    create_file("scripts/voice_engine.py", voice_engine)
+
+    # 4. EDITOR ENGINE (Music Fix + Speed Boost)
+    editor_engine = """
+import os
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip, vfx
 
 def create_video(video_paths, audio_path, music_path=None, mode="short", output_path="assets/final_video.mp4"):
     print(f"🎬 Editing Video (Mode: {mode})...")
     
     try:
+        # 1. Load Voice & Speed it up (1.1x for excitement)
         voice_audio = AudioFileClip(audio_path)
-        target_duration = voice_audio.duration + 2
+        voice_audio = voice_audio.fx(vfx.speedx, 1.1) # تسرع الصوت قليلاً
         
+        target_duration = voice_audio.duration + 1.5
+        
+        # 2. Prepare Video Clips
         clips = []
         current_duration = 0
-        
-        # أبعاد الفيديو حسب النوع
-        target_w = 1920 if mode == "long" else 1080
-        target_h = 1080 if mode == "long" else 1920
         
         while current_duration < target_duration:
             for path in video_paths:
@@ -168,8 +126,6 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
                     clip = VideoFileClip(path)
                     
                     # Resize Logic
-                    # لو الفيديو المصدر مش نفس النسبة، نعمل Crop
-                    # للتبسيط هنا بنعمل resize مباشر مع crop center
                     if mode == "short":
                          if clip.h != 1920: clip = clip.resize(height=1920)
                          clip = clip.crop(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
@@ -188,18 +144,29 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
         final_clip = concatenate_videoclips(clips, method="compose")
         final_clip = final_clip.subclip(0, target_duration)
         
-        # Audio Mix
+        # 3. Add Background Music (Strict Fix)
         final_audio = voice_audio
+        
         if music_path and os.path.exists(music_path):
+            print(f"🎵 Adding Music from: {music_path}")
             try:
                 music = AudioFileClip(music_path)
+                # Loop music if shorter
                 if music.duration < target_duration:
                     music = music.loop(duration=target_duration)
                 else:
                     music = music.subclip(0, target_duration)
-                music = music.volumex(0.1)
+                
+                # Lower volume to 10%
+                music = music.volumex(0.10)
+                
+                # Mix
                 final_audio = CompositeAudioClip([voice_audio, music])
-            except: pass
+                print("✅ Music Mixed Successfully.")
+            except Exception as e:
+                print(f"⚠️ Music Mix Failed: {e}")
+        else:
+            print("⚠️ WARNING: No Music File Found! Video will be voice only.")
 
         final_clip = final_clip.set_audio(final_audio)
         
@@ -211,78 +178,26 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
     except Exception as e:
         print(f"❌ Editing Error: {e}")
         return None
+
+# Thumbnail Logic (Simple Text)
+from PIL import Image, ImageDraw, ImageFont
+def create_thumbnail(image_path, text, output_path="assets/temp/final_thumb.jpg"):
+    try:
+        img = Image.open(image_path)
+        img = img.point(lambda p: p * 0.6) # Darken
+        draw = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+        except:
+            font = ImageFont.load_default()
+        draw.text((50, 50), text, font=font, fill=(255, 255, 0))
+        img.save(output_path)
+        return output_path
+    except: return None
 """
     create_file("scripts/editor_engine.py", editor_engine)
 
-    # 4. UPLOADER ENGINE (Supports Thumbnails)
-    uploader_engine = """
-import os
-import sys
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-from google.oauth2.credentials import Credentials
-
-def upload_video(file_path, title, description, tags, thumbnail_path=None):
-    print("🚀 Uploading to YouTube...")
-    
-    if not os.environ.get("YOUTUBE_REFRESH_TOKEN"):
-        print("❌ Error: Missing Refresh Token")
-        return None
-
-    token_info = {
-        "client_id": os.environ.get("YOUTUBE_CLIENT_ID"),
-        "client_secret": os.environ.get("YOUTUBE_CLIENT_SECRET"),
-        "refresh_token": os.environ.get("YOUTUBE_REFRESH_TOKEN"),
-        "token_uri": "https://oauth2.googleapis.com/token"
-    }
-
-    try:
-        creds = Credentials.from_authorized_user_info(token_info)
-        youtube = googleapiclient.discovery.build("youtube", "v3", credentials=creds)
-
-        body = {
-            "snippet": {
-                "title": title,
-                "description": description,
-                "tags": tags,
-                "categoryId": "15"
-            },
-            "status": {
-                "privacyStatus": "public",
-                "selfDeclaredMadeForKids": False
-            }
-        }
-
-        request = youtube.videos().insert(
-            part="snippet,status",
-            body=body,
-            media_body=googleapiclient.http.MediaFileUpload(file_path)
-        )
-        response = request.execute()
-        video_id = response['id']
-        print(f"✅ Video Uploaded: {video_id}")
-
-        # Upload Thumbnail if exists
-        if thumbnail_path and os.path.exists(thumbnail_path):
-            print("🖼️ Uploading Thumbnail...")
-            try:
-                youtube.thumbnails().set(
-                    videoId=video_id,
-                    media_body=googleapiclient.http.MediaFileUpload(thumbnail_path)
-                ).execute()
-                print("✅ Thumbnail Set.")
-            except Exception as e:
-                print(f"⚠️ Thumbnail Upload Failed: {e}")
-
-        return video_id
-
-    except Exception as e:
-        print(f"❌ Upload Failed: {e}")
-        return None
-"""
-    create_file("scripts/uploader_engine.py", uploader_engine)
-
-    # 5. MAIN PIPELINE (The Brain)
+    # 5. MAIN PIPELINE (Double Run: Short THEN Long)
     main_pipeline = """
 import os
 import sys
@@ -309,35 +224,36 @@ def get_random_animal():
     except:
         return "Lion"
 
-def run_pipeline():
-    print("🏁 Starting PHASE 5 Pipeline...")
-
-    # --- SMART DECISION ---
-    # لو الساعة دلوقتي 12 UTC (وقت الذروة)، نعمل فيديو طويل
-    # غير كدة نعمل Shorts
-    current_hour = datetime.datetime.utcnow().hour
-    if current_hour == 12:
-        mode = "long"
-        orientation = "landscape"
-        print("🕰️ It's 12:00 UTC! Time for a LONG VIDEO (Documentary Mode).")
+def execute_run(mode_override=None):
+    print(f"🚀 Starting Pipeline Run... Mode: {mode_override}")
+    
+    # Logic to determine mode
+    if mode_override:
+        mode = mode_override
     else:
-        mode = "short"
-        orientation = "portrait"
-        print(f"🕰️ It's {current_hour}:00 UTC. Making a SHORT.")
-    # -----------------------
+        # Automatic Schedule Logic
+        current_hour = datetime.datetime.utcnow().hour
+        if current_hour == 12: # 12 PM UTC = Long Video
+            mode = "long"
+        else:
+            mode = "short"
     
+    orientation = "landscape" if mode == "long" else "portrait"
     animal = get_random_animal()
-    script_data = generate_script(animal, mode=mode)
     
+    print(f"🦁 Animal: {animal} | Mode: {mode}")
+    
+    script_data = generate_script(animal, mode=mode)
     audio_path = generate_voice(script_data['script_text'])
-    if not audio_path: sys.exit(1)
+    if not audio_path: return
 
+    # Music Check
     local_music = "background.mp3"
     music_path = local_music if os.path.exists(local_music) else None
+    if not music_path: print("⚠️ NOTE: background.mp3 not found in root folder!")
 
-    # Media
     video_urls = gather_media(animal, orientation=orientation)
-    if not video_urls: sys.exit(1)
+    if not video_urls: return
 
     local_videos = []
     os.makedirs("assets/temp", exist_ok=True)
@@ -348,20 +264,17 @@ def run_pipeline():
             local_videos.append(path)
         except: pass
     
-    if not local_videos: sys.exit(1)
+    if not local_videos: return
 
-    # Edit
     final_video = create_video(local_videos, audio_path, music_path, mode=mode)
-    if not final_video: sys.exit(1)
+    if not final_video: return
 
-    # Thumbnail (Only for Long videos)
     thumb_path = None
     if mode == "long":
         raw_thumb = get_thumbnail_image(animal)
         if raw_thumb:
             thumb_path = create_thumbnail(raw_thumb, f"{animal} FACTS")
 
-    # Upload
     video_id = upload_video(
         final_video, 
         script_data['title'], 
@@ -370,27 +283,24 @@ def run_pipeline():
         thumb_path
     )
     
-    if not video_id: sys.exit(1)
-    print(f"🎉 DONE! Mode: {mode} | ID: {video_id}")
+    if video_id:
+        print(f"🎉 SUCCESS! {mode.upper()} Video Live: https://youtu.be/{video_id}")
 
 if __name__ == "__main__":
-    run_pipeline()
+    # TEST RUN: Run BOTH modes immediately
+    print("🧪 TEST RUN INITIATED: 1 Short + 1 Long")
+    
+    print("--- STEP 1: MAKING SHORT ---")
+    execute_run(mode_override="short")
+    
+    print("\\n--- STEP 2: MAKING LONG ---")
+    execute_run(mode_override="long")
+    
+    print("\\n🏁 TEST RUN COMPLETE.")
 """
     create_file("scripts/main_pipeline.py", main_pipeline)
 
-    # 6. Update Requirements (Add Pillow)
-    reqs = """
-moviepy==1.0.3
-requests
-google-api-python-client
-google-auth-oauthlib
-gTTS
-imageio-ffmpeg
-Pillow
-"""
-    create_file("requirements.txt", reqs)
-
-    print("\n👑 EMPIRE UPDATE INSTALLED. LONG VIDEOS & THUMBNAILS READY.")
+    print("\n👑 PHASE 6 INSTALLED. READY FOR DOUBLE TEST.")
 
 if __name__ == "__main__":
     main()
