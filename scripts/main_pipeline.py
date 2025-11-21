@@ -6,8 +6,8 @@ import random
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from content_engine import generate_script
-# بنستدعي دالة الموسيقى الجديدة هنا
-from media_engine import gather_media, download_video, get_background_music
+# شيلنا get_background_music عشان هنستخدم ملفك المحلي
+from media_engine import gather_media, download_video
 from voice_engine import generate_voice
 from editor_engine import create_video
 from uploader_engine import upload_video
@@ -33,8 +33,17 @@ def run_pipeline():
     audio_path = generate_voice(script_data['script_text'])
     if not audio_path: sys.exit(1)
 
-    # تحميل الموسيقى
-    music_path = get_background_music()
+    # --- التعديل هنا: استخدام الموسيقى بتاعتك ---
+    # بندور على الملف في الفولدر الرئيسي
+    local_music = "background.mp3" 
+    music_path = None
+    
+    if os.path.exists(local_music):
+        print("🎵 Found local background.mp3, using it.")
+        music_path = local_music
+    else:
+        print("⚠️ No local music found. Video will have voice only.")
+    # ---------------------------------------------
 
     video_urls = gather_media(animal)
     if not video_urls: sys.exit(1)
