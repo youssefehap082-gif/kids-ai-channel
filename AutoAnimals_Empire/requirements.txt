@@ -1,0 +1,6 @@
+moviepy==1.0.3
+openai
+google-api-python-client
+requests
+cloudinary
+elevenlabs

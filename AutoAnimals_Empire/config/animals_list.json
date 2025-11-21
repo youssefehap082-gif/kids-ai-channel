@@ -1,0 +1,20 @@
+{
+    "strategy": "focus_cute_first",
+    "categories": {
+        "cute": [
+            "Red Panda",
+            "Quokka",
+            "Sea Otter",
+            "Capybara"
+        ],
+        "predators": [
+            "Lion",
+            "Tiger",
+            "Great White Shark"
+        ],
+        "sea": [
+            "Octopus",
+            "Blue Whale"
+        ]
+    }
+}

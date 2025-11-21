@@ -1,0 +1,16 @@
+{
+    "video": {
+        "resolution": "1080p",
+        "shorts_daily": 5
+    },
+    "apis": {
+        "tts": [
+            "elevenlabs",
+            "openai"
+        ],
+        "stock": [
+            "pexels",
+            "pixabay"
+        ]
+    }
+}
