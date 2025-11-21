@@ -2,25 +2,56 @@ name: Daily Auto-Tube Pipeline
 
 on:
   schedule:
-    - cron: '0 11 * * *'
-  workflow_dispatch:
+    - cron: '0 11 * * *' # 7 AM EST
+  workflow_dispatch: # Manual Trigger
 
 jobs:
   produce_and_upload:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      
+
       - name: Install Dependencies
-        run: pip install moviepy openai google-api-python-client requests cloudinary elevenlabs
-      
-      - name: Run Pipeline
+        run: |
+          sudo apt-get install -y ffmpeg imagemagick
+          pip install -r requirements.txt
+
+      - name: Run Fail-Proof Pipeline
         env:
+          # --- MAPPING YOUR SECRETS TO SCRIPT VARIABLES ---
+          # AI & TTS
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVEN_API_KEY }}  # Mapped
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          
+          # STOCK MEDIA
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
+          STORYBLOCKS_API_KEY: ${{ secrets.STORYBLOCKS_API_KEY }}
+          VECTEEZY_API_KEY: ${{ secrets.VECTEEZY_API_KEY }}
+          
+          # YOUTUBE AUTH
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }} # Mapped
+          YOUTUBE_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}         # Mapped
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }} # Mapped
+          YOUTUBE_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}       # Mapped
+          
+          # CLOUD STORAGE
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          
         run: python scripts/main_pipeline.py
+      
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: run-logs
+          path: logs/
