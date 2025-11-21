@@ -1,14 +1,18 @@
 name: Daily Auto-Tube Pipeline
 
 on:
-  workflow_dispatch: # Manual Trigger Only for now
+  push:                 # يشتغل لما ترفع كود (للتجربة)
+  workflow_dispatch:    # يشتغل لما تدوس على الزرار اليدوي
 
 jobs:
   produce_and_upload:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
@@ -18,10 +22,12 @@ jobs:
           sudo apt-get install -y ffmpeg imagemagick ghostscript
           
       - name: Install Python Deps
-     run: pip install openai requests google-api-python-client google-auth-oauthlib moviepy==1.0.3 imageio-ffmpeg gTTS
+        # التعديل هنا: ضفنا gTTS في الآخر
+        run: pip install openai requests google-api-python-client google-auth-oauthlib moviepy==1.0.3 imageio-ffmpeg gTTS
 
       - name: Run Pipeline
         env:
+          # بنربط مفاتيحك السرية بمتغيرات الكود
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
