@@ -1,8 +1,9 @@
 name: Daily Auto-Tube Pipeline
 
 on:
-  push:                 # يشتغل لما ترفع كود (للتجربة)
-  workflow_dispatch:    # يشتغل لما تدوس على الزرار اليدوي
+  schedule:
+    - cron: '0 11 * * *' # يشتغل كل يوم الساعة 11 UTC (الظهر)
+  workflow_dispatch:      # زرار التشغيل اليدوي
 
 jobs:
   produce_and_upload:
@@ -22,12 +23,11 @@ jobs:
           sudo apt-get install -y ffmpeg imagemagick ghostscript
           
       - name: Install Python Deps
-        # التعديل هنا: ضفنا gTTS في الآخر
+        # gTTS is included here
         run: pip install openai requests google-api-python-client google-auth-oauthlib moviepy==1.0.3 imageio-ffmpeg gTTS
 
       - name: Run Pipeline
         env:
-          # بنربط مفاتيحك السرية بمتغيرات الكود
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
