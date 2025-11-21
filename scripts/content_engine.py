@@ -4,23 +4,32 @@ import json
 from openai import OpenAI
 
 def generate_script(animal_name):
-    print(f"📝 Generating Script for: {animal_name}")
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    print(f"📝 Writing Viral Script for: {animal_name}")
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key: return None
+    
+    client = OpenAI(api_key=api_key)
     prompt = f'''
-    Topic: {animal_name}
-    Style: Viral YouTube Shorts.
-    Structure: Hook, Intro, 3 Facts, Outro.
-    Output: JSON keys: hook, intro, facts (list), outro.
+    Create a viral YouTube Shorts script about {animal_name}.
+    Duration: 30-40 seconds.
+    Style: Fast, Shocking, Engaging.
+    JSON Format:
+    {{
+        "title": "Catchy Title Here",
+        "description": "SEO description with hashtags",
+        "script_text": "Full narration text here..."
+    }}
     '''
     try:
-        # Mock response for testing if API fails or credits low
-        # Remove this mock block to use real API
-        return {
-            "hook": f"Did you know {animal_name} can do this?",
-            "intro": "Welcome to Animal Facts.",
-            "facts": ["Fact 1 is crazy.", "Fact 2 is wild.", "Fact 3 is wow."],
-            "outro": "Subscribe for more!"
-        }
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return json.loads(response.choices[0].message.content)
     except Exception as e:
-        print(f"❌ Script Gen Failed: {e}")
-        return None
+        print(f"❌ Script Error: {e}")
+        return {
+            "title": f"Amazing Facts about {animal_name}",
+            "description": f"#shorts #{animal_name}",
+            "script_text": f"Did you know the {animal_name} is one of the most interesting animals? It has unique behaviors that will shock you. Subscribe for more!"
+        }
