@@ -2,10 +2,15 @@ name: Daily Auto-Tube Pipeline
 
 on:
   schedule:
-    - cron: '0 11 * * *' # يشتغل كل يوم الساعة 11 UTC (الظهر)
-  workflow_dispatch:      # زرار التشغيل اليدوي
+    # المواعيد دي بتوقيت UTC (يعني مواعيد أمريكا المظبوطة)
+    - cron: '0 12 * * *'  # يعادل 8 الصبح في نيويورك
+    - cron: '0 16 * * *'  # يعادل 12 الظهر في نيويورك
+    - cron: '0 20 * * *'  # يعادل 4 العصر في نيويورك
+    - cron: '0 0 * * *'   # يعادل 8 بالليل في نيويورك
+  workflow_dispatch:
 
 jobs:
+# ... باقي الملف زي ما هو
   produce_and_upload:
     runs-on: ubuntu-latest
     steps:
