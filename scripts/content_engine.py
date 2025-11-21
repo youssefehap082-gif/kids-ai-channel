@@ -1,35 +1,32 @@
-
-import os
-import json
-from openai import OpenAI
+import random
 
 def generate_script(animal_name):
-    print(f"📝 Writing Viral Script for: {animal_name}")
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key: return None
+    print(f"📝 Writing Script using FREE Template for: {animal_name}")
     
-    client = OpenAI(api_key=api_key)
-    prompt = f'''
-    Create a viral YouTube Shorts script about {animal_name}.
-    Duration: 30-40 seconds.
-    Style: Fast, Shocking, Engaging.
-    JSON Format:
-    {{
-        "title": "Catchy Title Here",
-        "description": "SEO description with hashtags",
-        "script_text": "Full narration text here..."
-    }}
-    '''
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        print(f"❌ Script Error: {e}")
-        return {
-            "title": f"Amazing Facts about {animal_name}",
-            "description": f"#shorts #{animal_name}",
-            "script_text": f"Did you know the {animal_name} is one of the most interesting animals? It has unique behaviors that will shock you. Subscribe for more!"
-        }
+    # Database of facts
+    facts_db = {
+        "Red Panda": [
+            "Red Pandas use their bushy tails as blankets in winter.",
+            "They are the original Panda, discovered before the Giant Panda!",
+            "They consume 200,000 bamboo leaves every day."
+        ],
+        "Lion": [
+            "A lion's roar can be heard from 5 miles away.",
+            "Lions sleep for up to 20 hours a day.",
+            "Females do 90 percent of the hunting."
+        ]
+    }
+    
+    facts = facts_db.get(animal_name, [
+        f"{animal_name} is an amazing creature.",
+        f"Scientists are still discovering secrets about the {animal_name}.",
+        "Nature is truly wonderful."
+    ])
+    
+    script_text = f"Did you know these facts about the {animal_name}? {facts[0]} {facts[1]} {facts[2]} Subscribe for more animal facts!"
+    
+    return {
+        "title": f"Shocking Facts about {animal_name} 😱 #shorts",
+        "description": f"Amazing facts about {animal_name}. #shorts #animals #nature",
+        "script_text": script_text
+    }
