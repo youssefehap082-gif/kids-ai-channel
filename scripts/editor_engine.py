@@ -2,7 +2,9 @@ import os
 import sys
 import traceback
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip
+from PIL import Image, ImageDraw, ImageFont  # دي المكتبات اللي كانت ناقصة
 
+# --- 1. دالة المونتاج (المخففة) ---
 def create_video(video_paths, audio_path, music_path=None, mode="short", output_path="assets/final_video.mp4"):
     print(f"🎬 STARTING EDIT: Mode={mode} | Clips={len(video_paths)}")
     
@@ -25,16 +27,15 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
             try:
                 clip = VideoFileClip(path)
                 
-                # Resize Logic (بدون تعقيد)
+                # Resize Logic
                 if mode == "long":
-                    # 1. اضبط العرض
+                    # 1. Resize width
                     if clip.w != TARGET_W: 
                         clip = clip.resize(width=TARGET_W)
-                    # 2. قص الطول الزيادة
+                    # 2. Crop height
                     if clip.h > TARGET_H:
                         clip = clip.crop(x1=0, y1=clip.h/2 - TARGET_H/2, width=TARGET_W, height=TARGET_H)
                     elif clip.h < TARGET_H:
-                        # لو الفيديو قصير أوي، نكبره بالطول ونقص العرض
                         clip = clip.resize(height=TARGET_H)
                         clip = clip.crop(x1=clip.w/2 - TARGET_W/2, y1=0, width=TARGET_W, height=TARGET_H)
                 
@@ -54,7 +55,7 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
         
         if not clips:
             print("❌ ERROR: No valid clips processed!")
-            sys.exit(1)
+            return None
 
         print(f"🧩 Concatenating {len(clips)} clips...")
         final_clip = concatenate_videoclips(clips, method="compose")
@@ -87,8 +88,8 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
             fps=24, 
             codec='libx264', 
             audio_codec='aac', 
-            threads=1,          # خيط واحد عشان الرامات
-            preset='ultrafast'  # أسرع حاجة
+            threads=1, 
+            preset='ultrafast'
         )
         
         return output_path
@@ -96,4 +97,27 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
     except Exception as e:
         print("\n❌ FATAL EDITING CRASH:")
         traceback.print_exc()
-        sys.exit(1) # ده هيخلي جيت هب يحمر فوراً
+        return None
+
+# --- 2. دالة الثامبنيل (اللي كانت ناقصة) ---
+def create_thumbnail(image_path, text, output_path="assets/temp/final_thumb.jpg"):
+    print("🖼️ Generating Thumbnail...")
+    try:
+        img = Image.open(image_path)
+        img = img.point(lambda p: p * 0.6) # Darken for text
+        draw = ImageDraw.Draw(img)
+        try:
+            # Try to load a bold font available on Linux
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+        except:
+            font = ImageFont.load_default()
+            
+        draw.text((50, 50), text, font=font, fill=(255, 255, 0))
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        img.save(output_path)
+        print(f"✅ Thumbnail Saved: {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"⚠️ Thumbnail Failed: {e}")
+        return None
