@@ -1,10 +1,17 @@
 import os
 import sys
 import traceback
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip
-from PIL import Image, ImageDraw, ImageFont  # دي المكتبات اللي كانت ناقصة
 
-# --- 1. دالة المونتاج (المخففة) ---
+# --- 🛠️ THE FIX: MONKEY PATCH FOR PILLOW 10+ ---
+import PIL.Image
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+# -----------------------------------------------
+
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip
+from PIL import Image, ImageDraw, ImageFont
+
+# --- 1. دالة المونتاج (المعدلة للإصلاح) ---
 def create_video(video_paths, audio_path, music_path=None, mode="short", output_path="assets/final_video.mp4"):
     print(f"🎬 STARTING EDIT: Mode={mode} | Clips={len(video_paths)}")
     
@@ -15,7 +22,7 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
         clips = []
         current_duration = 0
         
-        # إعدادات الجودة (720p للطويل عشان الرامات)
+        # إعدادات الجودة
         if mode == "long":
             TARGET_W, TARGET_H = 1280, 720
             print("ℹ️ Config: 720p HD (Optimized for Cloud)")
@@ -27,7 +34,7 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
             try:
                 clip = VideoFileClip(path)
                 
-                # Resize Logic
+                # Resize Logic (محمي بالباتش اللي فوق)
                 if mode == "long":
                     # 1. Resize width
                     if clip.w != TARGET_W: 
@@ -99,7 +106,7 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
         traceback.print_exc()
         return None
 
-# --- 2. دالة الثامبنيل (اللي كانت ناقصة) ---
+# --- 2. دالة الثامبنيل ---
 def create_thumbnail(image_path, text, output_path="assets/temp/final_thumb.jpg"):
     print("🖼️ Generating Thumbnail...")
     try:
@@ -107,7 +114,6 @@ def create_thumbnail(image_path, text, output_path="assets/temp/final_thumb.jpg"
         img = img.point(lambda p: p * 0.6) # Darken for text
         draw = ImageDraw.Draw(img)
         try:
-            # Try to load a bold font available on Linux
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
         except:
             font = ImageFont.load_default()
