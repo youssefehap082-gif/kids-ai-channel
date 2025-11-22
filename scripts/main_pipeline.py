@@ -12,7 +12,7 @@ from editor_engine import create_video, create_thumbnail
 from uploader_engine import upload_video
 
 def get_random_animal():
-    # القائمة المدمجة لمنع التكرار
+    # قائمة متنوعة جداً
     animals = [
         "Jaguar", "Polar Bear", "Komodo Dragon", "Great White Shark", "Saltwater Crocodile", 
         "Gray Wolf", "Cheetah", "Grizzly Bear", "Red Panda", "Quokka", "Sea Otter", 
@@ -21,7 +21,6 @@ def get_random_animal():
         "Peregrine Falcon", "Snowy Owl", "Eagle", "Toucan", "Praying Mantis", 
         "Hercules Beetle", "Platypus", "Axolotl", "Pangolin", "Honey Badger"
     ]
-    # اختيار عشوائي
     selected = random.choice(animals)
     print(f"🎲 System Selected: {selected}")
     return selected
@@ -36,29 +35,27 @@ def execute_run(mode):
     try:
         script_data = generate_script(animal, mode=mode)
     except Exception as e:
-        print(f"❌ Script Error: {e}")
-        sys.exit(1)
-    
+        print(f"❌ Script Failed: {e}")
+        return
+
     # 2. Voice
     audio_path = generate_voice(script_data['script_text'])
-    if not audio_path: sys.exit(1)
+    if not audio_path: return
 
     # 3. Music
     local_music = "background.mp3"
     music_path = local_music if os.path.exists(local_music) else None
-    if not music_path: print("⚠️ WARNING: No background.mp3 found!")
 
     # 4. Media
     orientation = "landscape" if mode == "long" else "portrait"
-    video_urls = gather_media(animal, orientation=orientation)
+    # لو طويل هات 12 فيديو عشان يغطي الـ 10 حقائق
+    limit = 12 if mode == "long" else 5 
     
-    if not video_urls: 
-        print("❌ No videos found!")
-        sys.exit(1)
+    video_urls = gather_media(animal, orientation=orientation, limit=limit)
+    if not video_urls: return
 
     local_videos = []
     os.makedirs("assets/temp", exist_ok=True)
-    
     for i, url in enumerate(video_urls):
         path = f"assets/temp/clip_{i}.mp4"
         try:
@@ -66,28 +63,22 @@ def execute_run(mode):
             local_videos.append(path)
         except: pass
     
-    if not local_videos: 
-        print("❌ No videos downloaded")
-        sys.exit(1)
+    if len(local_videos) < 2:
+        print("❌ Not enough videos downloaded!")
+        return
 
     # 5. Edit
-    print("🎬 Starting Editing...")
     final_video = create_video(local_videos, audio_path, music_path, mode=mode)
-    
-    if not final_video: 
-        print("❌ EDITING FAILED.")
-        sys.exit(1)
+    if not final_video: return
 
     # 6. Thumbnail (Long Only)
     thumb_path = None
     if mode == "long":
-        print("🖼️ Generating Thumbnail...")
         raw_thumb = get_thumbnail_image(animal)
         if raw_thumb:
             thumb_path = create_thumbnail(raw_thumb, f"{animal} FACTS")
 
     # 7. Upload
-    print("🚀 Uploading...")
     video_id = upload_video(
         final_video, 
         script_data['title'], 
@@ -98,10 +89,13 @@ def execute_run(mode):
     
     if video_id:
         print(f"✅ SUCCESS! {mode} video live: https://youtu.be/{video_id}")
-    else:
-        print("❌ Upload Failed")
-        sys.exit(1)
 
 if __name__ == "__main__":
-    print("🧪 TEST MODE: Generating 1 LONG Video Only...")
+    # تشغيل الشورتس ثم الطويل
+    print("🧪 FULL TEST: Generating 1 SHORT & 1 LONG (10 Facts)...")
+    
+    print("\n--- STEP 1: SHORTS ---")
+    execute_run("short")
+    
+    print("\n--- STEP 2: LONG VIDEO ---")
     execute_run("long")
