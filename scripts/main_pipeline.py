@@ -101,3 +101,4 @@ if __name__ == "__main__":
     # هنا الإجبار: شغل الطويل فقط عشان نتأكد
     print("🧪 FORCED TEST: LONG VIDEO ONLY")
     execute_run("long")
+
