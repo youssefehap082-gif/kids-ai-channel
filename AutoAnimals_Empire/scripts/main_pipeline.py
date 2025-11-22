@@ -1,9 +1,9 @@
 import os
 import sys
 import random
-import datetime
+import json
 
-# إضافة المسار عشان يشوف باقي الملفات
+# إضافة المسار
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from content_engine import generate_script
@@ -12,15 +12,16 @@ from voice_engine import generate_voice
 from editor_engine import create_video, create_thumbnail
 from uploader_engine import upload_video
 
-# --- التعديل الأول: القائمة جوه الكود عشان نضمن التنوع ---
 def get_random_animal():
+    # القائمة العملاقة مدمجة هنا لمنع الأخطاء
     animals = [
         "Jaguar", "Polar Bear", "Komodo Dragon", "Great White Shark", "Saltwater Crocodile", 
         "Gray Wolf", "Cheetah", "Grizzly Bear", "Red Panda", "Quokka", "Sea Otter", 
         "Capybara", "Fennec Fox", "Koala", "Sloth", "Meerkat", "Emperor Penguin", 
         "Blue Whale", "Mantis Shrimp", "Orca", "Hammerhead Shark", "Shoebill Stork", 
         "Peregrine Falcon", "Snowy Owl", "Eagle", "Toucan", "Praying Mantis", 
-        "Hercules Beetle", "Platypus", "Axolotl", "Pangolin", "Honey Badger"
+        "Hercules Beetle", "Platypus", "Axolotl", "Pangolin", "Honey Badger",
+        "Narwhal", "Box Jellyfish", "Cassowary"
     ]
     selected = random.choice(animals)
     print(f"🎲 System Selected: {selected}")
@@ -29,40 +30,35 @@ def get_random_animal():
 def execute_run(mode):
     print(f"\n🚀 STARTING PIPELINE: {mode.upper()} MODE")
     
-    # 1. اختيار حيوان (مختلف كل مرة)
+    # 1. اختيار حيوان
     animal = get_random_animal()
     print(f"🦁 Subject: {animal}")
     
-    # 2. كتابة السكريبت
-    try:
-        script_data = generate_script(animal, mode=mode)
-    except Exception as e:
-        print(f"❌ Script Error: {e}")
-        return
-
+    # 2. السكريبت
+    script_data = generate_script(animal, mode=mode)
+    
     # 3. الصوت
     audio_path = generate_voice(script_data['script_text'])
     if not audio_path: 
-        print("❌ Voice Failed")
-        return
+        print("❌ Voice Generation Failed")
+        sys.exit(1)
 
     # 4. الموسيقى
     local_music = "background.mp3"
     music_path = local_music if os.path.exists(local_music) else None
     if not music_path: print("⚠️ WARNING: No background.mp3 found!")
 
-    # 5. تجميع الفيديوهات
+    # 5. تحميل الفيديوهات
     orientation = "landscape" if mode == "long" else "portrait"
     video_urls = gather_media(animal, orientation=orientation)
     
     if not video_urls: 
         print("❌ No videos found!")
-        return
+        sys.exit(1)
 
     local_videos = []
     os.makedirs("assets/temp", exist_ok=True)
     
-    print("📥 Downloading clips...")
     for i, url in enumerate(video_urls):
         path = f"assets/temp/clip_{i}.mp4"
         try:
@@ -70,25 +66,28 @@ def execute_run(mode):
             local_videos.append(path)
         except: pass
     
-    if not local_videos: return
+    if not local_videos: 
+        print("❌ Failed to download videos")
+        sys.exit(1)
 
-    # 6. المونتاج (المرحلة الصعبة)
-    print("🎬 Editing started...")
+    # 6. المونتاج (اللحظة الحاسمة)
+    print("🎬 Starting Professional Editing...")
     final_video = create_video(local_videos, audio_path, music_path, mode=mode)
+    
     if not final_video: 
-        print("❌ Editing Failed (Likely Memory Issue).")
-        return
+        print("❌ EDITING FAILED. CHECK LOGS ABOVE.")
+        sys.exit(1) # ده هيخلي جيت هب يحمر
 
     # 7. الثامبنيل (للطويل فقط)
     thumb_path = None
     if mode == "long":
-        print("🖼️ Generating Thumbnail...")
+        print("🖼️ Creating Thumbnail...")
         raw_thumb = get_thumbnail_image(animal)
         if raw_thumb:
             thumb_path = create_thumbnail(raw_thumb, f"{animal} FACTS")
 
     # 8. الرفع
-    print("🚀 Uploading...")
+    print("🚀 Uploading to YouTube...")
     video_id = upload_video(
         final_video, 
         script_data['title'], 
@@ -100,14 +99,10 @@ def execute_run(mode):
     if video_id:
         print(f"✅ SUCCESS! {mode} video live: https://youtu.be/{video_id}")
     else:
-        print("❌ Upload Failed.")
+        print("❌ Upload Failed")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    # --- التعديل الثاني: تشغيل واحد فقط عشوائي أو حسب الوقت ---
-    # عشان الرامات متفرقعش، هنقرر هنعمل إيه ونعمل واحد بس
-    
-    # لو عايز تجرب دلوقتي حالا (Test)، هنخليه يعمل LONG بس عشان نتأكد منه
-    # بعد ما نتأكد، هنرجع الكود ده للأوتوماتيك
-    
-    print("🧪 FORCED TEST: Attempting LONG VIDEO Only (to fix the issue)")
+    # إجبار النظام على عمل فيديو طويل فقط (للتجربة وكشف الخطأ)
+    print("🧪 TEST MODE: Generating 1 LONG Video (Full Quality)...")
     execute_run("long")
