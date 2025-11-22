@@ -1,52 +1,60 @@
 import os
 import sys
-import json
 import random
+import json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from content_engine import generate_script
-# شيلنا get_background_music عشان هنستخدم ملفك المحلي
-from media_engine import gather_media, download_video
+from media_engine import gather_media, download_video, get_thumbnail_image
 from voice_engine import generate_voice
-from editor_engine import create_video
+from editor_engine import create_video, create_thumbnail
 from uploader_engine import upload_video
 
 def get_random_animal():
-    try:
-        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'animals_list.json')
-        with open(config_path, 'r') as f:
-            data = json.load(f)
-        categories = list(data['categories'].keys())
-        random_cat = random.choice(categories)
-        animal = random.choice(data['categories'][random_cat])
-        print(f"🎲 Selected Random Animal: {animal}")
-        return animal
-    except:
-        return "Lion"
+    # قائمة مدمجة (عشان نضمن التنوع)
+    animals = [
+        "Jaguar", "Komodo Dragon", "Great White Shark", "Saltwater Crocodile", 
+        "Gray Wolf", "Cheetah", "Grizzly Bear", "Quokka", "Sea Otter", 
+        "Capybara", "Fennec Fox", "Koala", "Sloth", "Meerkat", "Emperor Penguin", 
+        "Blue Whale", "Mantis Shrimp", "Orca", "Hammerhead Shark", "Shoebill Stork", 
+        "Peregrine Falcon", "Snowy Owl", "Eagle", "Toucan", "Praying Mantis", 
+        "Hercules Beetle", "Platypus", "Axolotl", "Pangolin", "Honey Badger"
+    ]
+    # اختار عشوائي وممنوع تختار أسد
+    selected = random.choice(animals)
+    print(f"🎲 RANDOM SELECTED: {selected}")
+    return selected
 
-def run_pipeline():
-    print("🏁 Starting FULL AUTO Pipeline...")
+def execute_run(mode):
+    print(f"\n🚀 STARTING STRICT PIPELINE: {mode.upper()}")
     
     animal = get_random_animal()
-    script_data = generate_script(animal)
+    
+    # 1. Script
+    try:
+        script_data = generate_script(animal, mode=mode)
+    except Exception as e:
+        print(f"❌ Script Failed: {e}")
+        sys.exit(1)
+    
+    # 2. Voice
     audio_path = generate_voice(script_data['script_text'])
     if not audio_path: sys.exit(1)
 
-    # --- التعديل هنا: استخدام الموسيقى بتاعتك ---
-    # بندور على الملف في الفولدر الرئيسي
-    local_music = "background.mp3" 
-    music_path = None
-    
-    if os.path.exists(local_music):
-        print("🎵 Found local background.mp3, using it.")
-        music_path = local_music
-    else:
-        print("⚠️ No local music found. Video will have voice only.")
-    # ---------------------------------------------
+    # 3. Music
+    local_music = "background.mp3"
+    music_path = local_music if os.path.exists(local_music) else None
+    if not music_path: print("⚠️ No Music Found")
 
-    video_urls = gather_media(animal)
-    if not video_urls: sys.exit(1)
+    # 4. Media
+    orientation = "landscape" if mode == "long" else "portrait"
+    print(f"📥 Fetching Media ({orientation})...")
+    video_urls = gather_media(animal, orientation=orientation)
+    
+    if not video_urls: 
+        print("❌ No Videos Found on Pexels!")
+        sys.exit(1)
 
     local_videos = []
     os.makedirs("assets/temp", exist_ok=True)
@@ -57,16 +65,39 @@ def run_pipeline():
             local_videos.append(path)
         except: pass
     
-    if not local_videos: sys.exit(1)
+    if len(local_videos) < 2:
+        print("❌ Not enough videos downloaded!")
+        sys.exit(1)
 
-    # بنبعت الموسيقى للمونتاج
-    final_video = create_video(local_videos, audio_path, music_path)
+    # 5. Edit
+    final_video = create_video(local_videos, audio_path, music_path, mode=mode)
     if not final_video: sys.exit(1)
 
-    video_id = upload_video(final_video, script_data['title'], script_data['description'])
-    if not video_id: sys.exit(1)
+    # 6. Thumbnail (Long Only)
+    thumb_path = None
+    if mode == "long":
+        print("🖼️ Generating Thumbnail...")
+        raw_thumb = get_thumbnail_image(animal)
+        if raw_thumb:
+            thumb_path = create_thumbnail(raw_thumb, f"{animal} FACTS")
+
+    # 7. Upload
+    print("🚀 Uploading to YouTube...")
+    video_id = upload_video(
+        final_video, 
+        script_data['title'], 
+        script_data['description'], 
+        script_data['tags'],
+        thumb_path
+    )
     
-    print(f"🎉 SUCCESS! Video Live: https://youtu.be/{video_id}")
+    if not video_id:
+        print("❌ Upload Failed!")
+        sys.exit(1)
+    
+    print(f"✅ SUCCESS! Video Live: https://youtu.be/{video_id}")
 
 if __name__ == "__main__":
-    run_pipeline()
+    # هنا الإجبار: شغل الطويل فقط عشان نتأكد
+    print("🧪 FORCED TEST: LONG VIDEO ONLY")
+    execute_run("long")
