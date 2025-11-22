@@ -2,74 +2,81 @@ import random
 import wikipedia
 import re
 
-def get_wiki_summary(animal):
-    print(f"📚 Searching Wikipedia for: {animal}")
+def get_10_facts(animal):
+    print(f"📚 Researching 10 Facts for: {animal}")
     try:
         wikipedia.set_lang("en")
-        # نحاول نجيب ملخص
+        # بنجيب ملخص كبير شوية عشان ننقي منه
         try:
-            summary = wikipedia.summary(animal, sentences=6)
+            # بنطلب 20 جملة عشان نضمن نلاقي 10 كويسين
+            full_summary = wikipedia.summary(animal, sentences=20)
         except wikipedia.exceptions.DisambiguationError as e:
-            # لو الاسم متشابه، خد أول اقتراح
-            summary = wikipedia.summary(e.options[0], sentences=6)
+            full_summary = wikipedia.summary(e.options[0], sentences=20)
         except wikipedia.exceptions.PageError:
-            # لو الصفحة مش موجودة
-            return f"The {animal} is a fascinating creature. It lives in the wild and has unique behaviors."
+            return [f"{animal} is amazing."] * 10
             
-        # تنظيف النص من الأقواس زي [1] [2]
-        clean_summary = re.sub(r'\[.*?\]', '', summary)
-        return clean_summary
+        # تنظيف النص وتقسيمه لجمل
+        clean_text = re.sub(r'\[.*?\]', '', full_summary)
+        sentences = clean_text.split('. ')
+        
+        # فلترة الجمل القصيرة أوي (أقل من 20 حرف) عشان الجودة
+        valid_sentences = [s.strip() for s in sentences if len(s) > 20]
+        
+        # لو لقينا أقل من 10، نكرر أو نكتفي بالموجود
+        if len(valid_sentences) < 10:
+            return valid_sentences
+            
+        # نختار أول 10 جمل (غالباً هم الأهم)
+        return valid_sentences[:10]
+        
     except Exception as e:
         print(f"⚠️ Wikipedia Error: {e}")
-        return f"The {animal} is an amazing animal found in nature. Scientists are studying its unique lifestyle."
+        return [f"{animal} is a unique creature found in nature."] * 10
 
 def generate_script(animal_name, mode="short"):
     print(f"📝 Writing Script ({mode}) for: {animal_name}")
     
-    # 1. نجيب معلومات حقيقية
-    wiki_text = get_wiki_summary(animal_name)
-    
-    # 2. جمل افتتاحية قوية (Hooks)
+    # Hooks
     hooks = [
-        f"You won't believe this about the {animal_name}!",
-        f"The {animal_name} is nature's ultimate machine.",
-        f"Stop scrolling! Learn the truth about the {animal_name}.",
-        f"Why is the {animal_name} so dangerous?",
-        f"This is the most amazing fact about the {animal_name}."
+        f"Get ready to learn the top 10 facts about the {animal_name}!",
+        f"Here are 10 things you didn't know about the {animal_name}.",
+        f"Why is the {animal_name} so special? Here are 10 reasons.",
+        f"The ultimate guide to the {animal_name} in 10 facts."
     ]
     hook = random.choice(hooks)
     
-    sentences = wiki_text.split('. ')
-    # تنظيف الجمل الفارغة
-    sentences = [s for s in sentences if len(s) > 10]
-
+    # جلب الحقائق
+    facts_list = get_10_facts(animal_name)
+    
     if mode == "long":
-        # --- DOCUMENTARY STYLE (فيديو طويل) ---
-        # نختار أول 5-6 جمل دسمة
-        body = ". ".join(sentences[:6])
+        # --- DOCUMENTARY STYLE (10 FACTS LIST) ---
+        # بناء السكريبت كنقاط محددة
+        script_body = ""
+        for i, fact in enumerate(facts_list):
+            # بنضيف رقم الحقيقة عشان المشاهد يتابع
+            script_body += f"Fact number {i+1}: {fact}. "
         
         script_text = (
-            f"{hook} Welcome to a deep dive into the world of the {animal_name}. "
-            f"{body}. "
-            f"These creatures are truly a marvel of evolution. Their survival instincts are unmatched in the wild. "
-            f"Thank you for watching this documentary. Like and subscribe for more wildlife secrets."
+            f"{hook} Welcome to Wild Facts Hub. "
+            f"{script_body} "
+            f"Which fact surprised you the most? Let us know in the comments. "
+            f"Thanks for watching, don't forget to like and subscribe."
         )
         
-        title = f"The Life of {animal_name}: Full Documentary 🌍"
+        title = f"10 Amazing Facts About The {animal_name} 🌍"
         desc = (
-            f"Watch this full documentary about the {animal_name}. Real facts, amazing footage.\n\n"
-            f"#animals #wildlife #documentary #{animal_name.replace(' ', '')} #nature"
+            f"Top 10 facts about the {animal_name}. Discover the secrets of nature.\n\n"
+            f"#animals #wildlife #documentary #{animal_name.replace(' ', '')} #nature #10facts"
         )
-        tags = ["animals", "wildlife", "documentary", "nature", animal_name, "science", "education"]
+        tags = ["animals", "wildlife", "documentary", "10 facts", animal_name, "education"]
         
     else:
-        # --- SHORTS STYLE (فيديو قصير) ---
-        fact1 = sentences[0] if len(sentences) > 0 else "It is amazing."
-        fact2 = sentences[1] if len(sentences) > 1 else "It lives in the wild."
+        # --- SHORTS STYLE (3 FACTS ONLY) ---
+        # الشورتس مايستحملش 10، هناخد أهم 3 بس
+        short_facts = facts_list[:3]
+        script_text = f"Did you know this about the {animal_name}? {short_facts[0]}. {short_facts[1]}. And finally, {short_facts[2]}. Subscribe for more!"
         
-        script_text = f"{hook} Did you know? {fact1}. Also, {fact2}. Subscribe for more wild facts!"
-        
-        title = f"{animal_name}: The Shocking Truth 🤯 #shorts"
+        title = f"{animal_name}: 3 Shocking Facts 🤯 #shorts"
         desc = f"Crazy facts about {animal_name} #shorts #animals #wildlife"
         tags = ["shorts", "animals", "facts", "viral", animal_name]
 
