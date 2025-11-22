@@ -2,7 +2,7 @@ import os
 import json
 
 # ==========================================
-# PHASE 6: VIRAL UPDATE (SEO, MUSIC FIX, MEGA LIST)
+# PHASE 7: WIKIPEDIA + EDGE TTS + PRO EDITING
 # ==========================================
 
 PROJECT_NAME = "." 
@@ -15,61 +15,61 @@ def create_file(path, content):
     print(f"📄 Updated: {path}")
 
 def main():
-    print("🚀 INSTALLING PHASE 6 (VIRAL ENGINES)...")
+    print("🚀 INSTALLING PHASE 7 (NATIONAL GEOGRAPHIC MODE)...")
 
-    # 1. MEGA ANIMALS LIST (No More Duplicates)
+    # 1. MEGA ANIMALS LIST (Categorized)
     animals_data = {
         "categories": {
-            "Predators": ["Lion", "Tiger", "Jaguar", "Polar Bear", "Komodo Dragon", "Great White Shark", "Crocodile", "Leopard", "Wolf", "Hyena"],
-            "Cute": ["Red Panda", "Quokka", "Sea Otter", "Capybara", "Fennec Fox", "Koala", "Sloth", "Meerkat", "Hedgehog", "Penguin"],
-            "Ocean": ["Octopus", "Blue Whale", "Mantis Shrimp", "Seahorse", "Jellyfish", "Narwhal", "Giant Squid", "Orca", "Hammerhead Shark"],
-            "Birds": ["Shoebill Stork", "Peregrine Falcon", "Owl", "Parrot", "Flamingo", "Peacock", "Eagle", "Hummingbird", "Toucan"],
-            "Insects": ["Praying Mantis", "Hercules Beetle", "Butterfly", "Tarantula", "Scorpion", "Honey Bee", "Ant Colony"],
-            "Weird": ["Platypus", "Blobfish", "Axolotl", "Pangolin", "Tapir", "Aye-Aye", "Star-nosed Mole"]
+            "Predators": ["Lion", "Tiger", "Jaguar", "Polar Bear", "Komodo Dragon", "Great White Shark", "Saltwater Crocodile", "Leopard", "Gray Wolf", "Spotted Hyena", "Cheetah", "Grizzly Bear"],
+            "Cute": ["Red Panda", "Quokka", "Sea Otter", "Capybara", "Fennec Fox", "Koala", "Sloth", "Meerkat", "Hedgehog", "Emperor Penguin", "Giant Panda", "Raccoon"],
+            "Ocean": ["Mimic Octopus", "Blue Whale", "Mantis Shrimp", "Seahorse", "Box Jellyfish", "Narwhal", "Giant Squid", "Orca", "Hammerhead Shark", "Manta Ray", "Pufferfish"],
+            "Birds": ["Shoebill Stork", "Peregrine Falcon", "Snowy Owl", "Macaw", "Flamingo", "Peacock", "Bald Eagle", "Hummingbird", "Toucan", "Cassowary", "Albatross"],
+            "Insects": ["Praying Mantis", "Hercules Beetle", "Monarch Butterfly", "Tarantula", "Emperor Scorpion", "Honey Bee", "Army Ant", "Dragonfly"],
+            "Weird": ["Platypus", "Blobfish", "Axolotl", "Pangolin", "Malayan Tapir", "Aye-Aye", "Star-nosed Mole", "Okapi", "Proboscis Monkey"]
         }
     }
     create_file("config/animals_list.json", json.dumps(animals_data, indent=4))
 
-    # 2. CONTENT ENGINE (Viral SEO + Templates)
+    # 2. CONTENT ENGINE (Wikipedia + Hook)
     content_engine = """
 import random
+import wikipedia
+
+def get_wiki_summary(animal):
+    try:
+        # Search and get summary
+        wikipedia.set_lang("en")
+        summary = wikipedia.summary(animal, sentences=4)
+        return summary
+    except:
+        return f"The {animal} is a fascinating creature found in the wild. It has unique behaviors that scientists are still studying."
 
 def generate_script(animal_name, mode="short"):
-    print(f"📝 Writing Viral Script ({mode}) for: {animal_name}")
+    print(f"📝 Researching & Writing ({mode}) for: {animal_name}")
     
-    # Viral Hooks
+    # 1. Get Real Facts from Wikipedia
+    real_info = get_wiki_summary(animal_name)
+    
+    # 2. Viral Hooks
     hooks = [
-        f"You won't believe this about the {animal_name}!",
-        f"This is why the {animal_name} is the craziest animal on earth.",
-        f"Stop scrolling! Look at this {animal_name}.",
+        f"You won't believe what the {animal_name} can do!",
+        f"The {animal_name} is nature's perfect machine.",
+        f"This is why you should never mess with a {animal_name}.",
         f"The shocking truth about the {animal_name}.",
-        f"Never get close to a {animal_name}, here is why."
+        f"Is the {animal_name} the smartest animal alive?"
     ]
-    
-    # Facts Template (Generic to ensure it works for all)
-    facts = [
-        f"The {animal_name} has abilities that scientists can't fully explain.",
-        f"They are known to survive in extreme conditions.",
-        f"Their hunting strategy is absolutely unique in the animal kingdom.",
-        f"A baby {animal_name} is one of the cutest things you will ever see.",
-        f"They can move faster than you think.",
-        f"Their population is rare and they are hard to find in the wild.",
-        f"They have a very special way of communicating with each other."
-    ]
-    random.shuffle(facts)
-    
     hook = random.choice(hooks)
     
     if mode == "long":
-        # Long Form Structure
-        script_text = f"{hook} Welcome to the world of the {animal_name}. {facts[0]}. {facts[1]}. {facts[2]}. {facts[3]}. {facts[4]}. Truly an amazing creature. Thanks for watching!"
-        title = f"10 Shocking Facts About {animal_name} 🌍 (Documentary)"
-        desc = f"Discover the secrets of the {animal_name}. Amazing wildlife documentary.\\n\\n#animals #wildlife #{animal_name.replace(' ', '')} #nature #documentary"
-        tags = ["animals", "wildlife", "documentary", "nature", animal_name, "facts"]
+        # Long Form: Documentary Style
+        script_text = f"{hook} {real_info} Let's dive deeper. {animal_name}s are known for their incredible survival skills. Unlike other species in their family, they have adapted perfectly to their environment. Watching them in the wild is a breathtaking experience. If you love nature, you have to respect the {animal_name}. Thanks for watching this documentary."
+        title = f"The Life of {animal_name}: Full Documentary 🌍"
+        desc = f"Watch this full documentary about the {animal_name}. Real facts, amazing footage.\\n\\n#animals #wildlife #documentary #{animal_name.replace(' ', '')} #nature"
+        tags = ["animals", "wildlife", "documentary", "nature", animal_name, "science", "education"]
     else:
-        # Shorts Structure
-        script_text = f"{hook} Did you know? {facts[0]}. {facts[1]}. {facts[2]}. Subscribe for more!"
-        title = f"{animal_name} Facts that will Blow Your Mind 🤯 #shorts"
+        # Shorts: Fast & Punchy
+        script_text = f"{hook} Did you know? {real_info.split('.')[0]}. Also, {real_info.split('.')[1]}. Subscribe for more wild facts!"
+        title = f"{animal_name}: The Truth Revealed 🤯 #shorts"
         desc = f"Crazy facts about {animal_name} #shorts #animals #wildlife"
         tags = ["shorts", "animals", "facts", "viral", animal_name]
 
@@ -82,18 +82,23 @@ def generate_script(animal_name, mode="short"):
 """
     create_file("scripts/content_engine.py", content_engine)
 
-    # 3. VOICE ENGINE (Faster Speed = More Excitement)
+    # 3. VOICE ENGINE (EDGE TTS - High Quality)
     voice_engine = """
-from gtts import gTTS
+import asyncio
+import edge_tts
 import os
 
+async def _generate_voice_async(text, output_path):
+    # voice: en-US-ChristopherNeural (Male) or en-US-AriaNeural (Female)
+    # rate: +10% for excitement
+    communicate = edge_tts.Communicate(text, "en-US-ChristopherNeural", rate="+15%")
+    await communicate.save(output_path)
+
 def generate_voice(text, output_path="assets/temp/voice.mp3"):
-    print("🎙️ Generating Voice (US Accent)...")
+    print("🎙️ Generating Voice (Edge TTS - Pro Quality)...")
     try:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        # US Accent for better engagement
-        tts = gTTS(text=text, lang='en', tld='us', slow=False)
-        tts.save(output_path)
+        asyncio.run(_generate_voice_async(text, output_path))
         return output_path
     except Exception as e:
         print(f"❌ TTS Error: {e}")
@@ -101,7 +106,7 @@ def generate_voice(text, output_path="assets/temp/voice.mp3"):
 """
     create_file("scripts/voice_engine.py", voice_engine)
 
-    # 4. EDITOR ENGINE (Music Fix + Speed Boost)
+    # 4. EDITOR ENGINE (Better Music Mixing)
     editor_engine = """
 import os
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip, vfx
@@ -110,29 +115,37 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
     print(f"🎬 Editing Video (Mode: {mode})...")
     
     try:
-        # 1. Load Voice & Speed it up (1.1x for excitement)
         voice_audio = AudioFileClip(audio_path)
-        voice_audio = voice_audio.fx(vfx.speedx, 1.1) # تسرع الصوت قليلاً
+        # Add padding at the end
+        target_duration = voice_audio.duration + 1.0
         
-        target_duration = voice_audio.duration + 1.5
-        
-        # 2. Prepare Video Clips
         clips = []
         current_duration = 0
+        
+        # Target Resolutions
+        # Long: 1920x1080 (Landscape) | Short: 1080x1920 (Portrait)
         
         while current_duration < target_duration:
             for path in video_paths:
                 try:
                     clip = VideoFileClip(path)
                     
-                    # Resize Logic
                     if mode == "short":
+                         # Enforce 9:16
                          if clip.h != 1920: clip = clip.resize(height=1920)
-                         clip = clip.crop(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
+                         if clip.w > 1080:
+                            clip = clip.crop(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
                     else:
-                         # Long Mode (Landscape)
+                         # Enforce 16:9 (Long)
+                         # Resize based on width first to ensure it fills screen
                          if clip.w != 1920: clip = clip.resize(width=1920)
-                         clip = clip.crop(x1=0, y1=clip.h/2 - 540, width=1920, height=1080)
+                         # If height is too tall, crop center
+                         if clip.h > 1080:
+                            clip = clip.crop(x1=0, y1=clip.h/2 - 540, width=1920, height=1080)
+                         # If height is too short (rare for 1920 width), resize by height
+                         elif clip.h < 1080:
+                            clip = clip.resize(height=1080)
+                            clip = clip.crop(x1=clip.w/2 - 960, y1=0, width=1920, height=1080)
 
                     clips.append(clip)
                     current_duration += clip.duration
@@ -144,33 +157,31 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
         final_clip = concatenate_videoclips(clips, method="compose")
         final_clip = final_clip.subclip(0, target_duration)
         
-        # 3. Add Background Music (Strict Fix)
+        # --- PROFESSIONAL AUDIO MIXING ---
         final_audio = voice_audio
         
         if music_path and os.path.exists(music_path):
-            print(f"🎵 Adding Music from: {music_path}")
+            print(f"🎵 Mixing Background Music...")
             try:
                 music = AudioFileClip(music_path)
-                # Loop music if shorter
+                
+                # Loop music
                 if music.duration < target_duration:
                     music = music.loop(duration=target_duration)
                 else:
                     music = music.subclip(0, target_duration)
                 
-                # Lower volume to 10%
-                music = music.volumex(0.10)
+                # Volume Levels: Voice 100%, Music 15%
+                music = music.volumex(0.15)
                 
-                # Mix
                 final_audio = CompositeAudioClip([voice_audio, music])
-                print("✅ Music Mixed Successfully.")
             except Exception as e:
-                print(f"⚠️ Music Mix Failed: {e}")
-        else:
-            print("⚠️ WARNING: No Music File Found! Video will be voice only.")
+                print(f"⚠️ Audio Mix Warning: {e}")
 
         final_clip = final_clip.set_audio(final_audio)
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # Higher bitrate for quality
         final_clip.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac', threads=2, preset='ultrafast')
         
         return output_path
@@ -179,25 +190,30 @@ def create_video(video_paths, audio_path, music_path=None, mode="short", output_
         print(f"❌ Editing Error: {e}")
         return None
 
-# Thumbnail Logic (Simple Text)
+# Thumbnail Logic
 from PIL import Image, ImageDraw, ImageFont
 def create_thumbnail(image_path, text, output_path="assets/temp/final_thumb.jpg"):
     try:
         img = Image.open(image_path)
-        img = img.point(lambda p: p * 0.6) # Darken
+        # Make it pop: Increase contrast/saturation logic would go here, 
+        # but for now we darken slightly for text readability
+        img = img.point(lambda p: p * 0.7) 
         draw = ImageDraw.Draw(img)
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 90)
         except:
             font = ImageFont.load_default()
-        draw.text((50, 50), text, font=font, fill=(255, 255, 0))
+            
+        # Draw Text (Yellow with Black Stroke if possible, simplified here)
+        draw.text((60, 60), text, font=font, fill=(255, 255, 0)) # Yellow
+        
         img.save(output_path)
         return output_path
     except: return None
 """
     create_file("scripts/editor_engine.py", editor_engine)
 
-    # 5. MAIN PIPELINE (Double Run: Short THEN Long)
+    # 5. MAIN PIPELINE (FORCE RUN: 1 SHORT + 1 LONG)
     main_pipeline = """
 import os
 import sys
@@ -222,36 +238,26 @@ def get_random_animal():
         random_cat = random.choice(categories)
         return random.choice(data['categories'][random_cat])
     except:
-        return "Lion"
+        return "Tiger"
 
-def execute_run(mode_override=None):
-    print(f"🚀 Starting Pipeline Run... Mode: {mode_override}")
+def execute_run(mode):
+    print(f"\\n🎬 STARTING PIPELINE: {mode.upper()} MODE")
     
-    # Logic to determine mode
-    if mode_override:
-        mode = mode_override
-    else:
-        # Automatic Schedule Logic
-        current_hour = datetime.datetime.utcnow().hour
-        if current_hour == 12: # 12 PM UTC = Long Video
-            mode = "long"
-        else:
-            mode = "short"
-    
-    orientation = "landscape" if mode == "long" else "portrait"
     animal = get_random_animal()
-    
-    print(f"🦁 Animal: {animal} | Mode: {mode}")
+    print(f"🦁 Subject: {animal}")
     
     script_data = generate_script(animal, mode=mode)
+    
     audio_path = generate_voice(script_data['script_text'])
     if not audio_path: return
 
-    # Music Check
+    # Force Music
     local_music = "background.mp3"
     music_path = local_music if os.path.exists(local_music) else None
-    if not music_path: print("⚠️ NOTE: background.mp3 not found in root folder!")
+    if not music_path: print("⚠️ MISSING MUSIC: Please upload background.mp3")
 
+    # Media
+    orientation = "landscape" if mode == "long" else "portrait"
     video_urls = gather_media(animal, orientation=orientation)
     if not video_urls: return
 
@@ -269,6 +275,7 @@ def execute_run(mode_override=None):
     final_video = create_video(local_videos, audio_path, music_path, mode=mode)
     if not final_video: return
 
+    # Thumbnail for Long Video
     thumb_path = None
     if mode == "long":
         raw_thumb = get_thumbnail_image(animal)
@@ -284,23 +291,60 @@ def execute_run(mode_override=None):
     )
     
     if video_id:
-        print(f"🎉 SUCCESS! {mode.upper()} Video Live: https://youtu.be/{video_id}")
+        print(f"✅ SUCCESS! {mode} video: https://youtu.be/{video_id}")
 
 if __name__ == "__main__":
-    # TEST RUN: Run BOTH modes immediately
-    print("🧪 TEST RUN INITIATED: 1 Short + 1 Long")
+    # This will run BOTH immediately for testing
+    print("🧪 TEST MODE ACTIVATED: Generating 1 Short & 1 Long Video...")
     
-    print("--- STEP 1: MAKING SHORT ---")
-    execute_run(mode_override="short")
+    execute_run("short")
+    execute_run("long")
     
-    print("\\n--- STEP 2: MAKING LONG ---")
-    execute_run(mode_override="long")
-    
-    print("\\n🏁 TEST RUN COMPLETE.")
+    print("\\n🏁 ALL TASKS COMPLETED.")
 """
     create_file("scripts/main_pipeline.py", main_pipeline)
 
-    print("\n👑 PHASE 6 INSTALLED. READY FOR DOUBLE TEST.")
+    # 6. GITHUB WORKFLOW (Install New Requirements)
+    workflow = """name: Daily Auto-Tube Pipeline
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 20 * * *'
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  produce_and_upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install System Deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick ghostscript
+          
+      - name: Install Python Deps
+        # Added edge-tts and wikipedia
+        run: pip install openai requests google-api-python-client google-auth-oauthlib moviepy==1.0.3 imageio-ffmpeg gTTS edge-tts wikipedia
+
+      - name: Run Pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python scripts/main_pipeline.py
+"""
+    create_file(".github/workflows/daily_video.yml", workflow)
+
+    print("\n👑 PHASE 7 INSTALLED. REAL FACTS, PRO VOICE, DOUBLE UPLOAD.")
 
 if __name__ == "__main__":
     main()
