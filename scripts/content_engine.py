@@ -2,83 +2,84 @@ import random
 import wikipedia
 import re
 
-def get_10_facts(animal):
-    print(f"📚 Researching 10 Facts for: {animal}")
+def get_detailed_facts(animal):
+    print(f"📚 Reading Full Wikipedia Page for: {animal}...")
     try:
         wikipedia.set_lang("en")
-        # بنجيب ملخص كبير شوية عشان ننقي منه
+        # هات الصفحة كاملة مش الملخص
         try:
-            # بنطلب 20 جملة عشان نضمن نلاقي 10 كويسين
-            full_summary = wikipedia.summary(animal, sentences=20)
+            page = wikipedia.page(animal, auto_suggest=False)
         except wikipedia.exceptions.DisambiguationError as e:
-            full_summary = wikipedia.summary(e.options[0], sentences=20)
-        except wikipedia.exceptions.PageError:
-            return [f"{animal} is amazing."] * 10
-            
-        # تنظيف النص وتقسيمه لجمل
-        clean_text = re.sub(r'\[.*?\]', '', full_summary)
-        sentences = clean_text.split('. ')
+            page = wikipedia.page(e.options[0], auto_suggest=False)
+        except:
+            return []
+
+        content = page.content
+        # تنظيف النص
+        content = re.sub(r'==.*?==+', '', content) # شيل العناوين
+        content = re.sub(r'\n', ' ', content)      # شيل السطور الفاضية
+        content = re.sub(r'\[.*?\]', '', content)  # شيل المصادر [1]
         
-        # فلترة الجمل القصيرة أوي (أقل من 20 حرف) عشان الجودة
-        valid_sentences = [s.strip() for s in sentences if len(s) > 20]
+        # قسم النص لجمل طويلة
+        sentences = content.split('. ')
+        long_facts = []
         
-        # لو لقينا أقل من 10، نكرر أو نكتفي بالموجود
-        if len(valid_sentences) < 10:
-            return valid_sentences
-            
-        # نختار أول 10 جمل (غالباً هم الأهم)
-        return valid_sentences[:10]
+        current_fact = ""
+        for s in sentences:
+            current_fact += s + ". "
+            # الحقيقة الواحدة لازم تكون دسمة (أكتر من 150 حرف)
+            if len(current_fact) > 150: 
+                long_facts.append(current_fact.strip())
+                current_fact = ""
+                if len(long_facts) >= 10: break # كفاية 10 فقرات دسمة
         
+        return long_facts
     except Exception as e:
         print(f"⚠️ Wikipedia Error: {e}")
-        return [f"{animal} is a unique creature found in nature."] * 10
+        return []
 
 def generate_script(animal_name, mode="short"):
     print(f"📝 Writing Script ({mode}) for: {animal_name}")
     
-    # Hooks
     hooks = [
-        f"Get ready to learn the top 10 facts about the {animal_name}!",
-        f"Here are 10 things you didn't know about the {animal_name}.",
-        f"Why is the {animal_name} so special? Here are 10 reasons.",
-        f"The ultimate guide to the {animal_name} in 10 facts."
+        f"Prepare to be amazed by the top 10 facts about the {animal_name}.",
+        f"Here is the ultimate guide to the {animal_name}. 10 things you didn't know.",
+        f"Why is the {animal_name} so unique? Let's discover 10 reasons."
     ]
     hook = random.choice(hooks)
     
-    # جلب الحقائق
-    facts_list = get_10_facts(animal_name)
-    
     if mode == "long":
-        # --- DOCUMENTARY STYLE (10 FACTS LIST) ---
-        # بناء السكريبت كنقاط محددة
+        # --- DOCUMENTARY (3+ Minutes Goal) ---
+        facts = get_detailed_facts(animal_name)
+        
+        # لو فشل يجيب حقائق طويلة، نملى بكلام عام عشان الوقت
+        if len(facts) < 5:
+            facts = [f"The {animal_name} is amazing and has many secrets in the wild."] * 10
+            
         script_body = ""
-        for i, fact in enumerate(facts_list):
-            # بنضيف رقم الحقيقة عشان المشاهد يتابع
-            script_body += f"Fact number {i+1}: {fact}. "
+        for i, fact in enumerate(facts):
+            script_body += f"Fact number {i+1}: {fact} "
+            # بنضيف وقفات بسيطة في النص
+            script_body += "... " 
+
+        outro = "Thank you for watching this documentary. Nature is truly fascinating. Which fact was your favorite? Tell us in the comments below. Don't forget to subscribe for more daily wildlife videos."
         
-        script_text = (
-            f"{hook} Welcome to Wild Facts Hub. "
-            f"{script_body} "
-            f"Which fact surprised you the most? Let us know in the comments. "
-            f"Thanks for watching, don't forget to like and subscribe."
-        )
+        script_text = f"{hook} ... {script_body} ... {outro}"
         
-        title = f"10 Amazing Facts About The {animal_name} 🌍"
-        desc = (
-            f"Top 10 facts about the {animal_name}. Discover the secrets of nature.\n\n"
-            f"#animals #wildlife #documentary #{animal_name.replace(' ', '')} #nature #10facts"
-        )
-        tags = ["animals", "wildlife", "documentary", "10 facts", animal_name, "education"]
+        title = f"10 Amazing Facts About The {animal_name} 🌍 (Full Documentary)"
+        desc = f"Discover the secrets of the {animal_name} in this detailed documentary.\n\n#animals #wildlife #documentary #{animal_name.replace(' ', '')} #nature"
+        tags = ["animals", "wildlife", "documentary", "10 facts", animal_name, "nature"]
         
     else:
-        # --- SHORTS STYLE (3 FACTS ONLY) ---
-        # الشورتس مايستحملش 10، هناخد أهم 3 بس
-        short_facts = facts_list[:3]
-        script_text = f"Did you know this about the {animal_name}? {short_facts[0]}. {short_facts[1]}. And finally, {short_facts[2]}. Subscribe for more!"
+        # --- SHORTS (Fast & Snappy) ---
+        try:
+            summary = wikipedia.summary(animal_name, sentences=3)
+        except: summary = f"{animal_name} is cool."
         
-        title = f"{animal_name}: 3 Shocking Facts 🤯 #shorts"
-        desc = f"Crazy facts about {animal_name} #shorts #animals #wildlife"
-        tags = ["shorts", "animals", "facts", "viral", animal_name]
+        script_text = f"Did you know this about the {animal_name}? {summary} Subscribe for more!"
+        title = f"{animal_name}: Mind Blowing Facts 🤯 #shorts"
+        desc = f"Quick facts about {animal_name} #shorts"
+        tags = ["shorts", "animals", "viral", animal_name]
 
     return {
         "title": title,
@@ -86,3 +87,4 @@ def generate_script(animal_name, mode="short"):
         "script_text": script_text,
         "tags": tags
     }
+    
