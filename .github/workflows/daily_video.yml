@@ -2,23 +2,18 @@ name: Daily Auto-Tube Pipeline
 
 on:
   schedule:
-    # المواعيد دي بتوقيت UTC (يعني مواعيد أمريكا المظبوطة)
-    - cron: '0 12 * * *'  # يعادل 8 الصبح في نيويورك
-    - cron: '0 16 * * *'  # يعادل 12 الظهر في نيويورك
-    - cron: '0 20 * * *'  # يعادل 4 العصر في نيويورك
-    - cron: '0 0 * * *'   # يعادل 8 بالليل في نيويورك
+    - cron: '0 12 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 20 * * *'
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
-# ... باقي الملف زي ما هو
   produce_and_upload:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
@@ -28,8 +23,8 @@ jobs:
           sudo apt-get install -y ffmpeg imagemagick ghostscript
           
       - name: Install Python Deps
-        # gTTS is included here
-        run: pip install openai requests google-api-python-client google-auth-oauthlib moviepy==1.0.3 imageio-ffmpeg gTTS
+        # التعديل هنا: ضفنا wikipedia و edge-tts و Pillow عشان مفيش حاجة تنقص
+        run: pip install openai requests google-api-python-client google-auth-oauthlib moviepy==1.0.3 imageio-ffmpeg gTTS edge-tts wikipedia Pillow
 
       - name: Run Pipeline
         env:
