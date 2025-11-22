@@ -1,61 +1,113 @@
-
 import os
 import sys
-import json
+import random
+import datetime
 
-# Add script dir to path to import modules
+# إضافة المسار عشان يشوف باقي الملفات
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from content_engine import generate_script
-from media_engine import gather_media
+from media_engine import gather_media, download_video, get_thumbnail_image
 from voice_engine import generate_voice
+from editor_engine import create_video, create_thumbnail
+from uploader_engine import upload_video
 
-def run_pipeline():
-    print("🎬 Starting AUTO-TUBE Production Engine...")
+# --- التعديل الأول: القائمة جوه الكود عشان نضمن التنوع ---
+def get_random_animal():
+    animals = [
+        "Jaguar", "Polar Bear", "Komodo Dragon", "Great White Shark", "Saltwater Crocodile", 
+        "Gray Wolf", "Cheetah", "Grizzly Bear", "Red Panda", "Quokka", "Sea Otter", 
+        "Capybara", "Fennec Fox", "Koala", "Sloth", "Meerkat", "Emperor Penguin", 
+        "Blue Whale", "Mantis Shrimp", "Orca", "Hammerhead Shark", "Shoebill Stork", 
+        "Peregrine Falcon", "Snowy Owl", "Eagle", "Toucan", "Praying Mantis", 
+        "Hercules Beetle", "Platypus", "Axolotl", "Pangolin", "Honey Badger"
+    ]
+    selected = random.choice(animals)
+    print(f"🎲 System Selected: {selected}")
+    return selected
+
+def execute_run(mode):
+    print(f"\n🚀 STARTING PIPELINE: {mode.upper()} MODE")
     
-    # 1. Pick Topic (Simple rotation for now)
+    # 1. اختيار حيوان (مختلف كل مرة)
+    animal = get_random_animal()
+    print(f"🦁 Subject: {animal}")
+    
+    # 2. كتابة السكريبت
     try:
-        with open('config/animals_list.json', 'r') as f:
-            data = json.load(f)
-            # For demo: Pick first cute animal
-            animal = data['categories']['cute'][0] 
-    except:
-        animal = "Red Panda"
-
-    print(f"🦁 Today's Star: {animal}")
-
-    # 2. Generate Script
-    script_data = generate_script(animal)
-    if not script_data:
-        print("❌ Critical: Script failed.")
+        script_data = generate_script(animal, mode=mode)
+    except Exception as e:
+        print(f"❌ Script Error: {e}")
         return
 
-    # Combine text for TTS
-    full_text = f"{script_data['hook']} {script_data['intro']} " + " ".join(script_data['facts']) + f" {script_data['outro']}"
+    # 3. الصوت
+    audio_path = generate_voice(script_data['script_text'])
+    if not audio_path: 
+        print("❌ Voice Failed")
+        return
+
+    # 4. الموسيقى
+    local_music = "background.mp3"
+    music_path = local_music if os.path.exists(local_music) else None
+    if not music_path: print("⚠️ WARNING: No background.mp3 found!")
+
+    # 5. تجميع الفيديوهات
+    orientation = "landscape" if mode == "long" else "portrait"
+    video_urls = gather_media(animal, orientation=orientation)
     
-    # 3. Generate Voice
-    audio_path = generate_voice(full_text)
-    if not audio_path:
-        print("❌ Critical: Voice failed.")
+    if not video_urls: 
+        print("❌ No videos found!")
         return
 
-    # 4. Gather Media
-    video_clips = gather_media(animal)
-    if not video_clips:
-        print("❌ Critical: No Media found.")
+    local_videos = []
+    os.makedirs("assets/temp", exist_ok=True)
+    
+    print("📥 Downloading clips...")
+    for i, url in enumerate(video_urls):
+        path = f"assets/temp/clip_{i}.mp4"
+        try:
+            download_video(url, path)
+            local_videos.append(path)
+        except: pass
+    
+    if not local_videos: return
+
+    # 6. المونتاج (المرحلة الصعبة)
+    print("🎬 Editing started...")
+    final_video = create_video(local_videos, audio_path, music_path, mode=mode)
+    if not final_video: 
+        print("❌ Editing Failed (Likely Memory Issue).")
         return
-        
-    # 5. Save Metadata for Editing Phase
-    meta = {
-        "animal": animal,
-        "script": script_data,
-        "audio_path": audio_path,
-        "video_urls": video_clips
-    }
-    with open("assets/temp/metadata.json", "w") as f:
-        json.dump(meta, f, indent=4)
-        
-    print("✅ Phase 2 Complete: Assets Ready for Editing.")
+
+    # 7. الثامبنيل (للطويل فقط)
+    thumb_path = None
+    if mode == "long":
+        print("🖼️ Generating Thumbnail...")
+        raw_thumb = get_thumbnail_image(animal)
+        if raw_thumb:
+            thumb_path = create_thumbnail(raw_thumb, f"{animal} FACTS")
+
+    # 8. الرفع
+    print("🚀 Uploading...")
+    video_id = upload_video(
+        final_video, 
+        script_data['title'], 
+        script_data['description'], 
+        script_data['tags'],
+        thumb_path
+    )
+    
+    if video_id:
+        print(f"✅ SUCCESS! {mode} video live: https://youtu.be/{video_id}")
+    else:
+        print("❌ Upload Failed.")
 
 if __name__ == "__main__":
-    run_pipeline()
+    # --- التعديل الثاني: تشغيل واحد فقط عشوائي أو حسب الوقت ---
+    # عشان الرامات متفرقعش، هنقرر هنعمل إيه ونعمل واحد بس
+    
+    # لو عايز تجرب دلوقتي حالا (Test)، هنخليه يعمل LONG بس عشان نتأكد منه
+    # بعد ما نتأكد، هنرجع الكود ده للأوتوماتيك
+    
+    print("🧪 FORCED TEST: Attempting LONG VIDEO Only (to fix the issue)")
+    execute_run("long")
