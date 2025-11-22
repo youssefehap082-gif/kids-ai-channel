@@ -1,7 +1,7 @@
 import os
 import requests
 
-# التعديل هنا: ضفنا limit=5 كقيمة افتراضية
+# التعديل المهم هنا: ضفنا limit=5
 def gather_media(query, orientation="portrait", limit=5):
     print(f"🎥 Searching Pexels for: {query} ({orientation}) Limit: {limit}")
     key = os.environ.get("PEXELS_API_KEY")
@@ -10,7 +10,6 @@ def gather_media(query, orientation="portrait", limit=5):
         return []
     
     headers = {'Authorization': key}
-    # بنستخدم الـ limit في الرابط
     url = f"https://api.pexels.com/videos/search?query={query}&per_page={limit}&orientation={orientation}"
     
     try:
@@ -23,8 +22,8 @@ def gather_media(query, orientation="portrait", limit=5):
         links = []
         for video in data.get('videos', []):
             files = video.get('video_files', [])
-            # نختار أعلى جودة
             if files:
+                # Get best quality
                 best = sorted(files, key=lambda x: x['width'] * x['height'], reverse=True)[0]
                 links.append(best['link'])
         return links
@@ -32,7 +31,6 @@ def gather_media(query, orientation="portrait", limit=5):
         print(f"❌ Pexels Connection Error: {e}")
         return []
 
-# دالة الثامبنيل (مهمة عشان الفيديو الطويل)
 def get_thumbnail_image(query, output_path="assets/temp/thumb_bg.jpg"):
     print(f"🖼️ Searching Pexels for Image: {query}")
     key = os.environ.get("PEXELS_API_KEY")
@@ -46,11 +44,9 @@ def get_thumbnail_image(query, output_path="assets/temp/thumb_bg.jpg"):
         data = r.json()
         if data.get('photos'):
             img_url = data['photos'][0]['src']['large2x']
-            
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            img_data = requests.get(img_url).content
             with open(output_path, 'wb') as f:
-                f.write(img_data)
+                f.write(requests.get(img_url).content)
             print("✅ Thumbnail Image Downloaded.")
             return output_path
     except Exception as e:
